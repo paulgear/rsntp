@@ -331,9 +331,7 @@ impl NtpServer {
                         println!("Thread #{} received {:?}", thread_id, request);
                     }
 
-                    // Record received packet
                     metrics.record_packet_received(&request.remote_addr);
-
                     if request.local_ts.diff_to_sec(&last_update).abs() > 0.1 {
                         cached_state = *state.lock().unwrap();
                         last_update = request.local_ts;
@@ -346,14 +344,12 @@ impl NtpServer {
                         Some(response) => {
                             match response.send(&socket) {
                                 Ok(_) => {
-                                    // Record sent packet
                                     metrics.record_packet_sent(&response.remote_addr);
                                     if debug {
                                         println!("Thread #{} sent {:?}", thread_id, response);
                                     }
                                 },
                                 Err(e) => {
-                                    // Record dropped packet
                                     metrics.record_packet_dropped("send_error");
                                     println!("Thread #{} failed to send packet to {}: {}",
                                            thread_id, response.remote_addr, e);
@@ -361,13 +357,11 @@ impl NtpServer {
                             }
                         },
                         None => {
-                            // Record dropped packet - not a request
                             metrics.record_packet_dropped("not_a_request");
                         }
                     }
                 },
                 Err(e) => {
-                    // Record dropped packet due to receive error
                     metrics.record_packet_dropped("receive_error");
                     println!("Thread #{} failed to receive packet: {}", thread_id, e);
                 },
@@ -387,14 +381,12 @@ impl NtpServer {
 
         match request.send(&socket) {
             Ok(_) => {
-                // Record sent packet
                 metrics.record_packet_sent(&request.remote_addr);
                 if debug {
                     println!("Client sent {:?}", request);
                 }
             },
             Err(e) => {
-                // Record dropped packet
                 metrics.record_packet_dropped("client_send_error");
                 println!("Client failed to send packet: {}", e);
                 return;
@@ -404,15 +396,12 @@ impl NtpServer {
         loop {
             let response = match NtpPacket::receive(&socket) {
                 Ok(packet) => {
-                    // Record received packet
                     metrics.record_packet_received(&packet.remote_addr);
-
                     if debug {
                         println!("Client received {:?}", packet);
                     }
 
                     if !packet.is_valid_response(&request) {
-                        // Record dropped packet - invalid response
                         metrics.record_packet_dropped("invalid_response");
                         println!("Client received unexpected {:?}", packet);
                         continue;
@@ -421,7 +410,6 @@ impl NtpServer {
                     packet
                 },
                 Err(e) => {
-                    // Record dropped packet - client receive error
                     metrics.record_packet_dropped("client_receive_error");
                     if debug {
                         println!("Client failed to receive packet: {}", e);
@@ -519,10 +507,7 @@ fn main() {
         addrs.push(local_address6.clone());
     }
 
-    // Initialize metrics
     let metrics = Arc::new(Metrics::new());
-
-    // Start Prometheus server if configured
     if let Some(prometheus_addr) = matches.opt_str("p") {
         let metrics_clone = metrics.clone();
         let _prometheus_thread = thread::spawn(move || {
