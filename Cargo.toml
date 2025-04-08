@@ -4,6 +4,7 @@ version = "0.0.1"
 authors = ["Miroslav Lichvar <mlichvar0@gmail.com>"]
 description = "Multi-threaded NTP server"
 license = "GPLv2+"
+edition = "2021"
 
 [dependencies]
 byteorder = "1.5.0"
@@ -11,3 +12,6 @@ getopts = "0.2.21"
 net2 = "0.2.39"
 privdrop = "0.5.4"
 rand = "0.8"
+prometheus = "0.13.3"
+hyper = { version = "0.14.27", features = ["server", "http1", "tcp"] }
+tokio = { version = "1.32.0", features = ["rt", "rt-multi-thread", "macros"] }

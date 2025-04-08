@@ -1,0 +1,37 @@
+name: Build and Release Binary
+
+on:
+  push:
+    branches:
+      - '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Rust
+        uses: rust-lang/rustup-action@v1.2.0
+        with:
+          toolchain: stable
+          profile: minimal
+          components: rustfmt, clippy
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Create unique tag
+        id: create_tag
+        run: |
+          echo "TAG=$(date +%Y-%m-%d)-${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        if: github.ref_type == 'tag'
+        with:
+          tag_name: ${{ env.TAG }}
+          files: target/release/rsntp

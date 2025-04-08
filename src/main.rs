@@ -15,9 +15,15 @@
 
 extern crate byteorder;
 extern crate getopts;
+extern crate hyper;
 extern crate net2;
-extern crate rand;
 extern crate privdrop;
+extern crate prometheus;
+extern crate rand;
+extern crate tokio;
+
+mod metrics;
+mod prometheus_server;
 
 use std::thread;
 use std::env;
@@ -35,6 +41,8 @@ use net2::UdpBuilder;
 use net2::unix::UnixUdpBuilderExt;
 
 use rand::random;
+
+use metrics::Metrics;
 
 #[derive(Debug, Copy, Clone)]
 struct NtpTimestamp {
@@ -262,10 +270,11 @@ struct NtpServer {
     sockets: Vec<UdpSocket>,
     server_addr: String,
     debug: bool,
+    metrics: Arc<Metrics>,
 }
 
 impl NtpServer {
-    fn new(local_addrs: Vec<String>, server_addr: String, debug: bool) -> NtpServer {
+    fn new(local_addrs: Vec<String>, server_addr: String, debug: bool, metrics: Arc<Metrics>) -> NtpServer {
         let state = NtpServerState{
             leap: 0,
             stratum: 0,
@@ -304,10 +313,11 @@ impl NtpServer {
             sockets: sockets,
             server_addr: server_addr,
             debug: debug,
+            metrics: metrics,
         }
     }
 
-    fn process_requests(thread_id: u32, debug: bool, socket: UdpSocket, state: Arc<Mutex<NtpServerState>>) {
+    fn process_requests(thread_id: u32, debug: bool, socket: UdpSocket, state: Arc<Mutex<NtpServerState>>, metrics: Arc<Metrics>) {
         let mut last_update = NtpTimestamp::now();
         let mut cached_state: NtpServerState;
         cached_state = *state.lock().unwrap();
@@ -321,6 +331,7 @@ impl NtpServer {
                         println!("Thread #{} received {:?}", thread_id, request);
                     }
 
+                    metrics.record_packet_received(&request.remote_addr);
                     if request.local_ts.diff_to_sec(&last_update).abs() > 0.1 {
                         cached_state = *state.lock().unwrap();
                         last_update = request.local_ts;
@@ -333,25 +344,32 @@ impl NtpServer {
                         Some(response) => {
                             match response.send(&socket) {
                                 Ok(_) => {
+                                    metrics.record_packet_sent(&response.remote_addr);
                                     if debug {
                                         println!("Thread #{} sent {:?}", thread_id, response);
                                     }
                                 },
-                                Err(e) => println!("Thread #{} failed to send packet to {}: {}",
-                                                   thread_id, response.remote_addr, e)
+                                Err(e) => {
+                                    metrics.record_packet_dropped("send_error");
+                                    println!("Thread #{} failed to send packet to {}: {}",
+                                           thread_id, response.remote_addr, e);
+                                }
                             }
                         },
-                        None => {}
+                        None => {
+                            metrics.record_packet_dropped("not_a_request");
+                        }
                     }
                 },
                 Err(e) => {
+                    metrics.record_packet_dropped("receive_error");
                     println!("Thread #{} failed to receive packet: {}", thread_id, e);
                 },
             }
         }
     }
 
-    fn update_state(state: Arc<Mutex<NtpServerState>>, addr: SocketAddr, debug: bool) {
+    fn update_state(state: Arc<Mutex<NtpServerState>>, addr: SocketAddr, debug: bool, metrics: Arc<Metrics>) {
         let request = NtpPacket::new_request(addr);
         let mut new_state: Option<NtpServerState> = None;
         let socket = match addr {
@@ -363,11 +381,13 @@ impl NtpServer {
 
         match request.send(&socket) {
             Ok(_) => {
+                metrics.record_packet_sent(&request.remote_addr);
                 if debug {
                     println!("Client sent {:?}", request);
                 }
             },
             Err(e) => {
+                metrics.record_packet_dropped("client_send_error");
                 println!("Client failed to send packet: {}", e);
                 return;
             }
@@ -376,11 +396,13 @@ impl NtpServer {
         loop {
             let response = match NtpPacket::receive(&socket) {
                 Ok(packet) => {
+                    metrics.record_packet_received(&packet.remote_addr);
                     if debug {
                         println!("Client received {:?}", packet);
                     }
 
                     if !packet.is_valid_response(&request) {
+                        metrics.record_packet_dropped("invalid_response");
                         println!("Client received unexpected {:?}", packet);
                         continue;
                     }
@@ -388,6 +410,7 @@ impl NtpServer {
                     packet
                 },
                 Err(e) => {
+                    metrics.record_packet_dropped("client_receive_error");
                     if debug {
                         println!("Client failed to receive packet: {}", e);
                     }
@@ -419,11 +442,12 @@ impl NtpServer {
             let debug = self.debug;
             let cloned_socket = socket.try_clone().unwrap();
 
-            threads.push(thread::spawn(move || {NtpServer::process_requests(id, debug, cloned_socket, state); }));
+            let metrics = self.metrics.clone();
+            threads.push(thread::spawn(move || {NtpServer::process_requests(id, debug, cloned_socket, state, metrics); }));
         }
 
         while ! quit {
-            NtpServer::update_state(self.state.clone(), self.server_addr.parse().unwrap(), self.debug);
+            NtpServer::update_state(self.state.clone(), self.server_addr.parse().unwrap(), self.debug, self.metrics.clone());
 
             thread::sleep(Duration::new(1, 0));
         }
@@ -449,6 +473,7 @@ fn main() {
     opts.optopt("a", "ipv4-address", "set local address of IPv4 server sockets (0.0.0.0:123)", "ADDR:PORT");
     opts.optopt("b", "ipv6-address", "set local address of IPv6 server sockets ([::]:123)", "ADDR:PORT");
     opts.optopt("s", "server-address", "set server address (127.0.0.1:11123)", "ADDR:PORT");
+    opts.optopt("p", "prometheus", "set Prometheus metrics endpoint address", "ADDR:PORT");
     opts.optopt("u", "user", "run as USER", "USER");
     opts.optopt("r", "root", "change root directory", "DIR");
     opts.optflag("d", "debug", "Enable debug messages");
@@ -482,7 +507,16 @@ fn main() {
         addrs.push(local_address6.clone());
     }
 
-    let server = NtpServer::new(addrs, server_addr, matches.opt_present("d"));
+    let metrics = Arc::new(Metrics::new());
+    if let Some(prometheus_addr) = matches.opt_str("p") {
+        let metrics_clone = metrics.clone();
+        let _prometheus_thread = thread::spawn(move || {
+            prometheus_server::start_prometheus_server(prometheus_addr, metrics_clone);
+        });
+        println!("Prometheus metrics server started");
+    }
+
+    let server = NtpServer::new(addrs, server_addr, matches.opt_present("d"), metrics);
 
     if matches.opts_present(&["r".to_string(), "u".to_string()]) {
         privdrop::PrivDrop::default()
