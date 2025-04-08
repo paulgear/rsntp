@@ -1,6 +1,8 @@
 name: Build and Release Binary
 
 on:
+  workflow_dispatch:
+
   push:
     branches:
       - '*'
@@ -12,14 +14,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-
-      - name: Set up Rust
-        uses: rust-lang/rustup-action@v1.2.0
-        with:
-          toolchain: stable
-          profile: minimal
-          components: rustfmt, clippy
-          targets: x86_64-unknown-linux-gnu
 
       - name: Build release binary
         run: cargo build --release
