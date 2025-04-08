@@ -27,7 +27,7 @@ jobs:
       - name: Create unique tag
         id: create_tag
         run: |
-          echo "TAG=$(date +%Y-%m-%d)-$((GITHUB_RUN_NUMBER % 1000 | printf '%03d\n'))" >> $GITHUB_ENV
+          echo "TAG=$(date +%Y-%m-%d)-${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
 
       - name: Create release
         uses: softprops/action-gh-release@v1
