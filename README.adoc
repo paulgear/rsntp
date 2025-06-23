@@ -23,7 +23,7 @@ bindaddress 127.0.0.1
 
 The following graphs compare the +rsntp+ performance with +chronyd+ (version
 4.1), as measured by https://github.com/mlichvar/ntpperf[+ntpperf+]. The tests
-ran on a Linux machine with an Intel E5-1220 CPU (4 cores) and a 1Gb/s Intel
+ran on a Linux machine with an Intel E3-1220 v6 CPU (4 cores) and a 1Gb/s Intel
 I350 network card. The maximum rate of NTP requests and responses at the 1Gb/s
 speed is about 1100k per second.
 
