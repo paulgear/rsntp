@@ -270,64 +270,30 @@ struct NtpServer {
 }
 
 impl NtpServer {
-    fn receive_with_metrics(socket: &UdpSocket, metrics: &Option<Arc<metrics::MetricsCollector>>, thread_id: u32) -> io::Result<NtpPacket> {
-        let mut buf = [0; 1024];
-        let (len, addr) = socket.recv_from(&mut buf)?;
-
-        // Record packet size before any validation
+    fn record_packet_size(socket: &UdpSocket, metrics: &Option<Arc<metrics::MetricsCollector>>) {
         if let Some(ref m) = metrics {
-            m.record_packet_size(len);
-        }
-
-        let local_ts = NtpTimestamp::now();
-
-        if len < 48 {
-            if let Some(ref m) = metrics {
-                m.increment_packet_counter(metrics::events::PacketEvent::ServerPacketTooShort, thread_id);
-                m.update_first_seen_time(metrics::events::PacketEvent::ServerPacketTooShort, thread_id);
-                m.update_last_seen_time(metrics::events::PacketEvent::ServerPacketTooShort, thread_id);
+            let mut buf = [0; 1024];
+            if let Ok((len, _)) = socket.peek_from(&mut buf) {
+                m.record_packet_size(len);
             }
-            return Err(Error::new(ErrorKind::UnexpectedEof, "Packet too short"));
         }
+    }
 
-        let leap = buf[0] >> 6;
-        let version = (buf[0] >> 3) & 0x7;
-        let mode = buf[0] & 0x7;
-
-        if version < 1 || version > 4 {
-            if let Some(ref m) = metrics {
-                m.increment_packet_counter(metrics::events::PacketEvent::ServerUnsupportedVersion, thread_id);
-                m.update_first_seen_time(metrics::events::PacketEvent::ServerUnsupportedVersion, thread_id);
-                m.update_last_seen_time(metrics::events::PacketEvent::ServerUnsupportedVersion, thread_id);
-            }
-            return Err(Error::new(ErrorKind::Other, "Unsupported version"));
-        }
-
-        // Record successful packet reception
+    fn record_error_metrics(error: &io::Error, metrics: &Option<Arc<metrics::MetricsCollector>>, thread_id: u32) {
         if let Some(ref m) = metrics {
-            m.increment_packet_counter(metrics::events::PacketEvent::ServerRequestReceived, thread_id);
-            m.update_first_seen_time(metrics::events::PacketEvent::ServerRequestReceived, thread_id);
-            m.update_last_seen_time(metrics::events::PacketEvent::ServerRequestReceived, thread_id);
-            m.add_client_ip(addr.ip());
+            let event = match error.kind() {
+                ErrorKind::UnexpectedEof if error.to_string().contains("Packet too short") => {
+                    metrics::events::PacketEvent::ServerPacketTooShort
+                }
+                ErrorKind::Other if error.to_string().contains("Unsupported version") => {
+                    metrics::events::PacketEvent::ServerUnsupportedVersion
+                }
+                _ => metrics::events::PacketEvent::ServerReceiveFailed
+            };
+            m.increment_packet_counter(event, thread_id);
+            m.update_first_seen_time(event, thread_id);
+            m.update_last_seen_time(event, thread_id);
         }
-
-        Ok(NtpPacket{
-            remote_addr: addr,
-            local_ts: local_ts,
-            leap: leap,
-            version: version,
-            mode: mode,
-            stratum: buf[1],
-            poll: buf[2] as i8,
-            precision: buf[3] as i8,
-            delay: NtpFracValue::read(&buf[4..8]),
-            dispersion: NtpFracValue::read(&buf[8..12]),
-            ref_id: BigEndian::read_u32(&buf[12..16]),
-            ref_ts: NtpTimestamp::read(&buf[16..24]),
-            orig_ts: NtpTimestamp::read(&buf[24..32]),
-            rx_ts: NtpTimestamp::read(&buf[32..40]),
-            tx_ts: NtpTimestamp::read(&buf[40..48]),
-        })
     }
 
     fn new(local_addrs: Vec<String>, server_addr: String, debug: bool, metrics_port: Option<u16>, client_cache_limits: (usize, usize, usize)) -> NtpServer {
@@ -394,9 +360,15 @@ impl NtpServer {
         println!("Server thread #{} started", thread_id);
 
         loop {
-            match NtpServer::receive_with_metrics(&socket, &metrics, thread_id) {
+            NtpServer::record_packet_size(&socket, &metrics);
+            match NtpPacket::receive(&socket) {
                 Ok(request) => {
-
+                    if let Some(ref m) = metrics {
+                        m.increment_packet_counter(metrics::events::PacketEvent::ServerRequestReceived, thread_id);
+                        m.update_first_seen_time(metrics::events::PacketEvent::ServerRequestReceived, thread_id);
+                        m.update_last_seen_time(metrics::events::PacketEvent::ServerRequestReceived, thread_id);
+                        m.add_client_ip(request.remote_addr.ip());
+                    }
                     if debug {
                         println!("Thread #{} received {:?}", thread_id, request);
                     }
@@ -436,11 +408,7 @@ impl NtpServer {
                     }
                 },
                 Err(e) => {
-                    if let Some(ref m) = metrics {
-                        m.increment_packet_counter(metrics::events::PacketEvent::ServerReceiveFailed, thread_id);
-                        m.update_first_seen_time(metrics::events::PacketEvent::ServerReceiveFailed, thread_id);
-                        m.update_last_seen_time(metrics::events::PacketEvent::ServerReceiveFailed, thread_id);
-                    }
+                    NtpServer::record_error_metrics(&e, &metrics, thread_id);
                     println!("Thread #{} failed to receive packet: {}", thread_id, e);
                 },
             }
