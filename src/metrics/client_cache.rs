@@ -1,4 +1,4 @@
-use moka::future::Cache;
+use moka::sync::Cache;
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -34,22 +34,22 @@ impl ClientCache {
         }
     }
     
-    pub async fn add_client(&self, ip: IpAddr) -> Result<(bool, bool, bool), Box<dyn std::error::Error + Send + Sync>> {
+    pub fn add_client(&self, ip: IpAddr) -> (bool, bool, bool) {
         let minute_new = !self.minute_cache.contains_key(&ip);
         let hour_new = !self.hour_cache.contains_key(&ip);
         let day_new = !self.day_cache.contains_key(&ip);
         
         if minute_new {
-            self.minute_cache.insert(ip, ()).await;
+            self.minute_cache.insert(ip, ());
         }
         if hour_new {
-            self.hour_cache.insert(ip, ()).await;
+            self.hour_cache.insert(ip, ());
         }
         if day_new {
-            self.day_cache.insert(ip, ()).await;
+            self.day_cache.insert(ip, ());
         }
         
-        Ok((minute_new, hour_new, day_new))
+        (minute_new, hour_new, day_new)
     }
     
     pub fn get_counts(&self) -> (u64, u64, u64) {

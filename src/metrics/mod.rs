@@ -46,7 +46,7 @@ impl MetricsCollector {
         let last_seen_gauge = Family::<PacketLabels, Gauge>::default();
 
         // Histogram buckets: <48, 48-56, 56-128, 128+ bytes
-        let packet_size_histogram = Histogram::new([48.0, 56.0, 128.0].into_iter());
+        let packet_size_histogram = Histogram::new(vec![48.0, 56.0, 128.0].into_iter());
 
         let unique_clients_gauge = Family::<ClientLabels, Gauge>::default();
 
@@ -193,42 +193,40 @@ impl MetricsCollector {
         self.packet_size_histogram.observe(size_bytes as f64);
     }
 
-    pub async fn add_client_ip(&self, ip: IpAddr) {
+    pub fn add_client_ip(&self, ip: IpAddr) {
         if !self.enabled {
             return;
         }
 
         if let Some(ref cache) = self.client_cache {
-            // Ignore all errors to ensure zero impact when disabled
-            if let Ok((minute_new, hour_new, day_new)) = cache.add_client(ip).await {
-                let ip_version = match ip {
-                    IpAddr::V4(_) => "4",
-                    IpAddr::V6(_) => "6",
+            let (minute_new, hour_new, day_new) = cache.add_client(ip);
+            let ip_version = match ip {
+                IpAddr::V4(_) => "4",
+                IpAddr::V6(_) => "6",
+            };
+
+            if minute_new {
+                let labels = ClientLabels {
+                    period: "minute".to_string(),
+                    ip_version: ip_version.to_string(),
                 };
+                self.unique_clients_gauge.get_or_create(&labels).inc();
+            }
 
-                if minute_new {
-                    let labels = ClientLabels {
-                        period: "minute".to_string(),
-                        ip_version: ip_version.to_string(),
-                    };
-                    self.unique_clients_gauge.get_or_create(&labels).inc();
-                }
+            if hour_new {
+                let labels = ClientLabels {
+                    period: "hour".to_string(),
+                    ip_version: ip_version.to_string(),
+                };
+                self.unique_clients_gauge.get_or_create(&labels).inc();
+            }
 
-                if hour_new {
-                    let labels = ClientLabels {
-                        period: "hour".to_string(),
-                        ip_version: ip_version.to_string(),
-                    };
-                    self.unique_clients_gauge.get_or_create(&labels).inc();
-                }
-
-                if day_new {
-                    let labels = ClientLabels {
-                        period: "day".to_string(),
-                        ip_version: ip_version.to_string(),
-                    };
-                    self.unique_clients_gauge.get_or_create(&labels).inc();
-                }
+            if day_new {
+                let labels = ClientLabels {
+                    period: "day".to_string(),
+                    ip_version: ip_version.to_string(),
+                };
+                self.unique_clients_gauge.get_or_create(&labels).inc();
             }
         }
     }

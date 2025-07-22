@@ -15,9 +15,11 @@
 
 extern crate byteorder;
 extern crate getopts;
+extern crate moka;
 extern crate net2;
-extern crate rand;
 extern crate privdrop;
+extern crate prometheus_client;
+extern crate rand;
 
 use std::thread;
 use std::env;
