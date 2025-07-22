@@ -114,11 +114,7 @@ impl MetricsCollector {
 
         // Also increment global counter (thread_id = 0)
         if thread_id != 0 {
-            let global_labels = PacketLabels {
-                thread_id: "0".to_string(),
-                packet_event: event.as_str().to_string(),
-            };
-            self.packet_counter.get_or_create(&global_labels).inc();
+            self.increment_packet_counter(event, 0);
         }
     }
 
@@ -137,14 +133,7 @@ impl MetricsCollector {
 
         // Also update global gauge (thread_id = 0)
         if thread_id != 0 {
-            let global_labels = PacketLabels {
-                thread_id: "0".to_string(),
-                packet_event: event.as_str().to_string(),
-            };
-            let global_gauge = self.first_seen_gauge.get_or_create(&global_labels);
-            if global_gauge.get() == 0 {
-                global_gauge.set(current_time);
-            }
+            self.update_first_seen_time(event, 0);
         }
     }
 
@@ -159,11 +148,7 @@ impl MetricsCollector {
 
         // Also update global gauge (thread_id = 0)
         if thread_id != 0 {
-            let global_labels = PacketLabels {
-                thread_id: "0".to_string(),
-                packet_event: event.as_str().to_string(),
-            };
-            self.last_seen_gauge.get_or_create(&global_labels).set(current_time);
+            self.update_last_seen_time(event, 0);
         }
     }
 
