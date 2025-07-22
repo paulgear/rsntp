@@ -126,11 +126,7 @@ struct NtpPacket {
 }
 
 impl NtpPacket {
-    fn receive(socket: &UdpSocket) -> io::Result<NtpPacket> {
-        Self::receive_with_metrics(socket, &None, 0)
-    }
-
-    fn receive_with_metrics(socket: &UdpSocket, metrics: &Option<Arc<metrics::MetricsCollector>>, thread_id: u32) -> io::Result<NtpPacket> {
+    fn receive(socket: &UdpSocket, metrics: &Option<Arc<metrics::MetricsCollector>>, thread_id: u32) -> io::Result<NtpPacket> {
         let mut buf = [0; 1024];
 
         let (len, addr) = socket.recv_from(&mut buf)?;
@@ -361,7 +357,7 @@ impl NtpServer {
         println!("Server thread #{} started", thread_id);
 
         loop {
-            match NtpPacket::receive_with_metrics(&socket, &metrics, thread_id) {
+            match NtpPacket::receive(&socket, &metrics, thread_id) {
                 Ok(request) => {
                     if debug {
                         println!("Thread #{} received {:?}", thread_id, request);
@@ -446,7 +442,7 @@ impl NtpServer {
         }
 
         loop {
-            let response = match NtpPacket::receive(&socket) {
+            let response = match NtpPacket::receive(&socket, &metrics, 0) {
                 Ok(packet) => {
                     if let Some(ref m) = metrics {
                         m.increment_packet_counter(metrics::events::PacketEvent::ClientResponseReceived, 0);
