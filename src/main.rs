@@ -337,7 +337,7 @@ impl NtpServer {
         println!("Server thread #{} started", thread_id);
 
         loop {
-            match NtpPacket::receive(&socket, &metrics, thread_id) {
+            match NtpPacket::receive(&socket, &None, thread_id) {
                 Ok(request) => {
                     if debug {
                         println!("Thread #{} received {:?}", thread_id, request);
