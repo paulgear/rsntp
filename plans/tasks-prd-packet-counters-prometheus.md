@@ -48,10 +48,10 @@
   - [x] 4.3 Start HTTP server in separate lower-priority thread
   - [x] 4.4 Handle server startup and shutdown gracefully
 
-- [ ] 5. Integrate Metrics into Main Application
-  - [ ] 5.1 Initialize MetricsCollector in main.rs when --metrics-port is provided
-  - [ ] 5.2 Add metric recording calls to NTP server packet handling code
-  - [ ] 5.3 Record packet events for all server operations (receive, send, errors)
-  - [ ] 5.4 Record client IP addresses for unique client tracking
-  - [ ] 5.5 Record packet sizes for histogram metrics
-  - [ ] 5.6 Ensure metrics calls are conditional and have no impact when disabled
+- [x] 5. Integrate Metrics into Main Application
+  - [x] 5.1 Initialize MetricsCollector in main.rs when --metrics-port is provided
+  - [x] 5.2 Add metric recording calls to NTP server packet handling code
+  - [x] 5.3 Record packet events for all server operations (receive, send, errors)
+  - [x] 5.4 Record client IP addresses for unique client tracking
+  - [x] 5.5 Record packet sizes for histogram metrics
+  - [x] 5.6 Ensure metrics calls are conditional and have no impact when disabled
