@@ -39,6 +39,7 @@ use net2::unix::UnixUdpBuilderExt;
 use rand::random;
 
 mod metrics;
+use metrics::events::PacketEvent;
 
 #[derive(Debug, Copy, Clone)]
 struct NtpTimestamp {
@@ -140,7 +141,7 @@ impl NtpPacket {
 
         if len < 48 {
             if let Some(ref m) = metrics {
-                m.update_packet_counter(metrics::events::PacketEvent::ServerPacketTooShort, thread_id);
+                m.update_packet_counter(PacketEvent::ServerPacketTooShort, thread_id);
             }
             return Err(Error::new(ErrorKind::UnexpectedEof, "Packet too short"));
         }
@@ -151,13 +152,13 @@ impl NtpPacket {
 
         if version < 1 || version > 4 {
             if let Some(ref m) = metrics {
-                m.update_packet_counter(metrics::events::PacketEvent::ServerUnsupportedVersion, thread_id);
+                m.update_packet_counter(PacketEvent::ServerUnsupportedVersion, thread_id);
             }
             return Err(Error::new(ErrorKind::Other, "Unsupported version"));
         }
 
         if let Some(ref m) = metrics {
-            m.update_packet_counter(metrics::events::PacketEvent::ServerRequestReceived, thread_id);
+            m.update_packet_counter(PacketEvent::ServerRequestReceived, thread_id);
         }
 
         Ok(NtpPacket{
@@ -370,7 +371,7 @@ impl NtpServer {
                             match response.send(&socket) {
                                 Ok(_) => {
                                     if let Some(ref m) = metrics {
-                                        m.update_packet_counter(metrics::events::PacketEvent::ServerResponseSent, thread_id);
+                                        m.update_packet_counter(PacketEvent::ServerResponseSent, thread_id);
                                     }
                                     if debug {
                                         println!("Thread #{} sent {:?}", thread_id, response);
@@ -378,7 +379,7 @@ impl NtpServer {
                                 },
                                 Err(e) => {
                                     if let Some(ref m) = metrics {
-                                        m.update_packet_counter(metrics::events::PacketEvent::ServerSendFailed, thread_id);
+                                        m.update_packet_counter(PacketEvent::ServerSendFailed, thread_id);
                                     }
                                     println!("Thread #{} failed to send packet to {}: {}", thread_id, response.remote_addr, e);
                                 }
@@ -389,7 +390,7 @@ impl NtpServer {
                 },
                 Err(e) => {
                     if let Some(ref m) = metrics {
-                        m.update_packet_counter(metrics::events::PacketEvent::ServerReceiveFailed, thread_id);
+                        m.update_packet_counter(PacketEvent::ServerReceiveFailed, thread_id);
                     }
                     println!("Thread #{} failed to receive packet: {}", thread_id, e);
                 },
@@ -410,7 +411,7 @@ impl NtpServer {
         match request.send(&socket) {
             Ok(_) => {
                 if let Some(ref m) = metrics {
-                    m.update_packet_counter(metrics::events::PacketEvent::ClientRequestSent, 0);
+                    m.update_packet_counter(PacketEvent::ClientRequestSent, 0);
                 }
                 if debug {
                     println!("Client sent {:?}", request);
@@ -418,7 +419,7 @@ impl NtpServer {
             },
             Err(e) => {
                 if let Some(ref m) = metrics {
-                    m.update_packet_counter(metrics::events::PacketEvent::ClientSendFailed, 0);
+                    m.update_packet_counter(PacketEvent::ClientSendFailed, 0);
                 }
                 println!("Client failed to send packet: {}", e);
                 return;
@@ -429,7 +430,7 @@ impl NtpServer {
             let response = match NtpPacket::receive(&socket, &metrics, 0) {
                 Ok(packet) => {
                     if let Some(ref m) = metrics {
-                        m.update_packet_counter(metrics::events::PacketEvent::ClientResponseReceived, 0);
+                        m.update_packet_counter(PacketEvent::ClientResponseReceived, 0);
                     }
                     if debug {
                         println!("Client received {:?}", packet);
@@ -437,7 +438,7 @@ impl NtpServer {
 
                     if !packet.is_valid_response(&request) {
                         if let Some(ref m) = metrics {
-                            m.update_packet_counter(metrics::events::PacketEvent::ClientInvalidResponse, 0);
+                            m.update_packet_counter(PacketEvent::ClientInvalidResponse, 0);
                         }
                         println!("Client received unexpected {:?}", packet);
                         continue;
@@ -447,7 +448,7 @@ impl NtpServer {
                 },
                 Err(e) => {
                     if let Some(ref m) = metrics {
-                        m.update_packet_counter(metrics::events::PacketEvent::ClientReceiveFailed, 0);
+                        m.update_packet_counter(PacketEvent::ClientReceiveFailed, 0);
                     }
                     if debug {
                         println!("Client failed to receive packet: {}", e);
