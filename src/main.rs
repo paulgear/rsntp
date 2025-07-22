@@ -36,6 +36,8 @@ use net2::unix::UnixUdpBuilderExt;
 
 use rand::random;
 
+mod metrics;
+
 #[derive(Debug, Copy, Clone)]
 struct NtpTimestamp {
     ts: u64,
@@ -262,10 +264,11 @@ struct NtpServer {
     sockets: Vec<UdpSocket>,
     server_addr: String,
     debug: bool,
+    metrics: Option<Arc<metrics::MetricsCollector>>,
 }
 
 impl NtpServer {
-    fn new(local_addrs: Vec<String>, server_addr: String, debug: bool) -> NtpServer {
+    fn new(local_addrs: Vec<String>, server_addr: String, debug: bool, metrics_port: Option<u16>, client_cache_limits: (usize, usize, usize)) -> NtpServer {
         let state = NtpServerState{
             leap: 0,
             stratum: 0,
@@ -299,11 +302,18 @@ impl NtpServer {
             sockets.push(socket);
         }
 
+        let metrics = if let Some(_port) = metrics_port {
+            Some(Arc::new(metrics::MetricsCollector::new(true, client_cache_limits.0 as u64, client_cache_limits.1 as u64, client_cache_limits.2 as u64)))
+        } else {
+            Some(Arc::new(metrics::MetricsCollector::new(false, 0, 0, 0)))
+        };
+
         NtpServer{
             state: Arc::new(Mutex::new(state)),
             sockets: sockets,
             server_addr: server_addr,
             debug: debug,
+            metrics: metrics,
         }
     }
 
@@ -434,6 +444,31 @@ impl NtpServer {
     }
 }
 
+fn parse_client_cache_limits(limits_str: &str) -> (usize, usize, usize) {
+    let parts: Vec<&str> = limits_str.split(',').collect();
+    if parts.len() != 3 {
+        eprintln!("Invalid client cache limits format. Expected: minute,hour,day (e.g., 64K,1M,16M)");
+        return (64 * 1024, 1024 * 1024, 16 * 1024 * 1024);
+    }
+
+    let parse_size = |s: &str| -> usize {
+        let s = s.trim();
+        if s.ends_with('K') || s.ends_with('k') {
+            s[..s.len()-1].parse::<usize>().unwrap_or(0) * 1024
+        } else if s.ends_with('M') || s.ends_with('m') {
+            s[..s.len()-1].parse::<usize>().unwrap_or(0) * 1024 * 1024
+        } else {
+            s.parse::<usize>().unwrap_or(0)
+        }
+    };
+
+    (
+        parse_size(parts[0]),
+        parse_size(parts[1]),
+        parse_size(parts[2])
+    )
+}
+
 fn print_usage(opts: Options) {
     let brief = format!("Usage: rsntp [OPTIONS]");
     print!("{}", opts.usage(&brief));
@@ -451,6 +486,8 @@ fn main() {
     opts.optopt("s", "server-address", "set server address (127.0.0.1:11123)", "ADDR:PORT");
     opts.optopt("u", "user", "run as USER", "USER");
     opts.optopt("r", "root", "change root directory", "DIR");
+    opts.optopt("", "metrics-port", "enable metrics endpoint on PORT", "PORT");
+    opts.optopt("", "client-cache-limits", "set client cache limits (64K,1M,16M)", "LIMITS");
     opts.optflag("d", "debug", "Enable debug messages");
     opts.optflag("h", "help", "Print this help message");
 
@@ -473,6 +510,10 @@ fn main() {
     let n6 = matches.opt_str("6").unwrap_or("1".to_string()).parse().unwrap_or(1);
     let local_address4 = matches.opt_str("a").unwrap_or("0.0.0.0:123".to_string());
     let local_address6 = matches.opt_str("b").unwrap_or("[::]:123".to_string());
+    let metrics_port = matches.opt_str("metrics-port").and_then(|s| s.parse().ok());
+    let client_cache_limits = parse_client_cache_limits(
+        &matches.opt_str("client-cache-limits").unwrap_or("64K,1M,16M".to_string())
+    );
 
     for _ in 0..n4 {
         addrs.push(local_address4.clone());
@@ -482,7 +523,7 @@ fn main() {
         addrs.push(local_address6.clone());
     }
 
-    let server = NtpServer::new(addrs, server_addr, matches.opt_present("d"));
+    let server = NtpServer::new(addrs, server_addr, matches.opt_present("d"), metrics_port, client_cache_limits);
 
     if matches.opts_present(&["r".to_string(), "u".to_string()]) {
         privdrop::PrivDrop::default()

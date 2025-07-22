@@ -3,15 +3,14 @@ pub mod events;
 pub mod http_server;
 
 use crate::metrics::client_cache::ClientCache;
-use crate::metrics::events::{PacketEvent, GaugeEvent, HistogramEvent};
+use crate::metrics::events::PacketEvent;
 use prometheus_client::encoding::EncodeLabelSet;
 use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::gauge::Gauge;
-use prometheus_client::metrics::histogram::{Histogram, exponential_buckets};
+use prometheus_client::metrics::histogram::Histogram;
 use prometheus_client::metrics::family::Family;
 use prometheus_client::registry::Registry;
 use std::net::IpAddr;
-use std::panic::AssertUnwindSafe;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -41,22 +40,22 @@ pub struct MetricsCollector {
 impl MetricsCollector {
     pub fn new(enabled: bool, minute_limit: u64, hour_limit: u64, day_limit: u64) -> Self {
         let mut registry = Registry::default();
-        
+
         let packet_counter = Family::<PacketLabels, Counter>::default();
         let first_seen_gauge = Family::<PacketLabels, Gauge>::default();
         let last_seen_gauge = Family::<PacketLabels, Gauge>::default();
-        
+
         // Histogram buckets: <48, 48-56, 56-128, 128+ bytes
         let packet_size_histogram = Histogram::new([48.0, 56.0, 128.0].into_iter());
-        
+
         let unique_clients_gauge = Family::<ClientLabels, Gauge>::default();
-        
+
         let client_cache = if enabled {
             Some(ClientCache::new(minute_limit, hour_limit, day_limit))
         } else {
             None
         };
-        
+
         if enabled {
             registry.register(
                 "rsntp_packet_count",
@@ -84,7 +83,7 @@ impl MetricsCollector {
                 unique_clients_gauge.clone(),
             );
         }
-        
+
         Self {
             registry: Arc::new(registry),
             enabled,
@@ -100,113 +99,105 @@ impl MetricsCollector {
     pub fn is_enabled(&self) -> bool {
         self.enabled
     }
-    
+
     pub fn registry(&self) -> Arc<Registry> {
         self.registry.clone()
     }
-    
+
     fn current_time_nanos() -> i64 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_nanos() as i64
     }
-    
+
     pub fn increment_packet_counter(&self, event: PacketEvent, thread_id: u32) {
         if !self.enabled {
             return;
         }
-        
-        let _ = std::panic::catch_unwind(|| {
-            let labels = PacketLabels {
-                thread_id: thread_id.to_string(),
+
+        let labels = PacketLabels {
+            thread_id: thread_id.to_string(),
+            packet_event: event.as_str().to_string(),
+        };
+        self.packet_counter.get_or_create(&labels).inc();
+
+        // Also increment global counter (thread_id = 0)
+        if thread_id != 0 {
+            let global_labels = PacketLabels {
+                thread_id: "0".to_string(),
                 packet_event: event.as_str().to_string(),
             };
-            self.packet_counter.get_or_create(&labels).inc();
-            
-            // Also increment global counter (thread_id = 0)
-            if thread_id != 0 {
-                let global_labels = PacketLabels {
-                    thread_id: "0".to_string(),
-                    packet_event: event.as_str().to_string(),
-                };
-                self.packet_counter.get_or_create(&global_labels).inc();
-            }
-        });
+            self.packet_counter.get_or_create(&global_labels).inc();
+        }
     }
-    
+
     pub fn update_first_seen_time(&self, event: PacketEvent, thread_id: u32) {
         if !self.enabled {
             return;
         }
-        
-        let _ = std::panic::catch_unwind(|| {
-            let current_time = Self::current_time_nanos();
-            let labels = PacketLabels {
-                thread_id: thread_id.to_string(),
+
+        let current_time = Self::current_time_nanos();
+        let labels = PacketLabels {
+            thread_id: thread_id.to_string(),
+            packet_event: event.as_str().to_string(),
+        };
+
+        let gauge = self.first_seen_gauge.get_or_create(&labels);
+        // Only set if not already set (first time)
+        if gauge.get() == 0 {
+            gauge.set(current_time);
+        }
+
+        // Also update global gauge (thread_id = 0)
+        if thread_id != 0 {
+            let global_labels = PacketLabels {
+                thread_id: "0".to_string(),
                 packet_event: event.as_str().to_string(),
             };
-            
-            let gauge = self.first_seen_gauge.get_or_create(&labels);
-            // Only set if not already set (first time)
-            if gauge.get() == 0 {
-                gauge.set(current_time);
+            let global_gauge = self.first_seen_gauge.get_or_create(&global_labels);
+            if global_gauge.get() == 0 {
+                global_gauge.set(current_time);
             }
-            
-            // Also update global gauge (thread_id = 0)
-            if thread_id != 0 {
-                let global_labels = PacketLabels {
-                    thread_id: "0".to_string(),
-                    packet_event: event.as_str().to_string(),
-                };
-                let global_gauge = self.first_seen_gauge.get_or_create(&global_labels);
-                if global_gauge.get() == 0 {
-                    global_gauge.set(current_time);
-                }
-            }
-        });
+        }
     }
-    
+
     pub fn update_last_seen_time(&self, event: PacketEvent, thread_id: u32) {
         if !self.enabled {
             return;
         }
-        
-        let _ = std::panic::catch_unwind(|| {
-            let current_time = Self::current_time_nanos();
-            let labels = PacketLabels {
-                thread_id: thread_id.to_string(),
+
+        let current_time = Self::current_time_nanos();
+        let labels = PacketLabels {
+            thread_id: thread_id.to_string(),
+            packet_event: event.as_str().to_string(),
+        };
+
+        self.last_seen_gauge.get_or_create(&labels).set(current_time);
+
+        // Also update global gauge (thread_id = 0)
+        if thread_id != 0 {
+            let global_labels = PacketLabels {
+                thread_id: "0".to_string(),
                 packet_event: event.as_str().to_string(),
             };
-            
-            self.last_seen_gauge.get_or_create(&labels).set(current_time);
-            
-            // Also update global gauge (thread_id = 0)
-            if thread_id != 0 {
-                let global_labels = PacketLabels {
-                    thread_id: "0".to_string(),
-                    packet_event: event.as_str().to_string(),
-                };
-                self.last_seen_gauge.get_or_create(&global_labels).set(current_time);
-            }
-        });
+            self.last_seen_gauge.get_or_create(&global_labels).set(current_time);
+        }
     }
-    
+
     pub fn record_packet_size(&self, size_bytes: usize) {
         if !self.enabled {
             return;
         }
-        
-        let _ = std::panic::catch_unwind(|| {
-            self.packet_size_histogram.observe(size_bytes as f64);
-        });
+
+        self.packet_size_histogram.observe(size_bytes as f64);
     }
-    
+
     pub async fn add_client_ip(&self, ip: IpAddr) {
         if !self.enabled {
             return;
         }
-        
+
         if let Some(ref cache) = self.client_cache {
             // Ignore all errors to ensure zero impact when disabled
             if let Ok((minute_new, hour_new, day_new)) = cache.add_client(ip).await {
@@ -214,32 +205,30 @@ impl MetricsCollector {
                     IpAddr::V4(_) => "4",
                     IpAddr::V6(_) => "6",
                 };
-                
-                let _ = std::panic::catch_unwind(|| {
-                    if minute_new {
-                        let labels = ClientLabels {
-                            period: "minute".to_string(),
-                            ip_version: ip_version.to_string(),
-                        };
-                        self.unique_clients_gauge.get_or_create(&labels).inc();
-                    }
-                    
-                    if hour_new {
-                        let labels = ClientLabels {
-                            period: "hour".to_string(),
-                            ip_version: ip_version.to_string(),
-                        };
-                        self.unique_clients_gauge.get_or_create(&labels).inc();
-                    }
-                    
-                    if day_new {
-                        let labels = ClientLabels {
-                            period: "day".to_string(),
-                            ip_version: ip_version.to_string(),
-                        };
-                        self.unique_clients_gauge.get_or_create(&labels).inc();
-                    }
-                });
+
+                if minute_new {
+                    let labels = ClientLabels {
+                        period: "minute".to_string(),
+                        ip_version: ip_version.to_string(),
+                    };
+                    self.unique_clients_gauge.get_or_create(&labels).inc();
+                }
+
+                if hour_new {
+                    let labels = ClientLabels {
+                        period: "hour".to_string(),
+                        ip_version: ip_version.to_string(),
+                    };
+                    self.unique_clients_gauge.get_or_create(&labels).inc();
+                }
+
+                if day_new {
+                    let labels = ClientLabels {
+                        period: "day".to_string(),
+                        ip_version: ip_version.to_string(),
+                    };
+                    self.unique_clients_gauge.get_or_create(&labels).inc();
+                }
             }
         }
     }
