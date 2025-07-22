@@ -3,14 +3,14 @@
 ## Relevant Files
 
 - `plans/prd-packet-counters-prometheus.md` - PRD containing high level description and implementation guidelines
-- `src/metrics/mod.rs` - Main metrics module containing all Prometheus functionality
-- `src/metrics/events.rs` - Enums for counter, gauge, and histogram events
-- `src/metrics/client_cache.rs` - TTL cache implementation for unique client tracking
-- `src/metrics/http_server.rs` - HTTP server for `/metrics` endpoint using hyper
-- `src/main.rs` - Command line argument parsing and metrics initialization
+- `src/metrics/mod.rs` - Main metrics module with MetricsCollector struct and all Prometheus functionality
+- `src/metrics/events.rs` - Enums for PacketEvent, GaugeEvent, and HistogramEvent with string conversion
+- `src/metrics/client_cache.rs` - TTL cache implementation for unique client tracking with configurable limits
+- `src/metrics/http_server.rs` - HTTP server for `/metrics` endpoint using hyper (placeholder)
+- `src/main.rs` - Command line argument parsing and metrics initialization (to be updated)
 - `Cargo.toml` - Dependencies for prometheus_client, moka, and hyper crates
-- `tests/metrics_test.rs` - Integration tests for metrics functionality
-- `tests/client_cache_test.rs` - Unit tests for client cache functionality
+- `tests/metrics_test.rs` - Integration tests for metrics functionality (to be created)
+- `tests/client_cache_test.rs` - Unit tests for client cache functionality (to be created)
 
 ### Notes
 
@@ -26,15 +26,15 @@
   - [x] 1.3 Create src/metrics/mod.rs with public module declarations
   - [x] 1.4 Create placeholder files for events.rs, client_cache.rs, and http_server.rs
 
-- [ ] 2. Implement Core Metrics Module
-  - [ ] 2.1 Define PacketEvent, GaugeEvent, and HistogramEvent enums in events.rs
-  - [ ] 2.2 Implement MetricsCollector struct with Prometheus registry and metrics
-  - [ ] 2.3 Add thread-safe counter increment functions with thread_id parameter
-  - [ ] 2.4 Add gauge update functions for first_seen_time and last_seen_time
-  - [ ] 2.5 Add histogram recording function for packet sizes
-  - [ ] 2.6 Implement TTL cache for unique client tracking in client_cache.rs
-  - [ ] 2.7 Add client IP tracking function with automatic gauge updates
-  - [ ] 2.8 Ensure all metric operations ignore errors and have zero impact when disabled
+- [x] 2. Implement Core Metrics Module
+  - [x] 2.1 Define PacketEvent, GaugeEvent, and HistogramEvent enums in events.rs
+  - [x] 2.2 Implement MetricsCollector struct with Prometheus registry and metrics
+  - [x] 2.3 Add thread-safe counter increment functions with thread_id parameter
+  - [x] 2.4 Add gauge update functions for first_seen_time and last_seen_time
+  - [x] 2.5 Add histogram recording function for packet sizes
+  - [x] 2.6 Implement TTL cache for unique client tracking in client_cache.rs
+  - [x] 2.7 Add client IP tracking function with automatic gauge updates
+  - [x] 2.8 Ensure all metric operations ignore errors and have zero impact when disabled
 
 - [ ] 3. Add Command Line Interface Support
   - [ ] 3.1 Add --metrics-port parameter to clap configuration in main.rs
