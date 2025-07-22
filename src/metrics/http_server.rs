@@ -54,11 +54,6 @@ fn handle_request(
 
     match (method, path) {
         ("GET", "/metrics") => {
-            if !metrics.is_enabled() {
-                send_response(&mut stream, 503, "Service Unavailable", "Metrics disabled")?;
-                return Ok(());
-            }
-
             let mut buffer = String::new();
             if encode(&mut buffer, &metrics.registry()).is_err() {
                 send_response(&mut stream, 500, "Internal Server Error", "Failed to encode metrics")?;

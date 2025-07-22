@@ -509,7 +509,7 @@ fn parse_client_cache_limits(limits_str: &str) -> (usize, usize, usize) {
 
 fn initialize_metrics(metrics_port: Option<u16>, client_cache_limits: (usize, usize, usize)) -> Option<Arc<metrics::MetricsCollector>> {
     if let Some(port) = metrics_port {
-        let collector = Arc::new(metrics::MetricsCollector::new(true, client_cache_limits.0 as u64, client_cache_limits.1 as u64, client_cache_limits.2 as u64));
+        let collector = Arc::new(metrics::MetricsCollector::new(client_cache_limits.0 as u64, client_cache_limits.1 as u64, client_cache_limits.2 as u64));
         let server = metrics::MetricsServer::new(collector.clone(), port);
         thread::spawn(move || {
             if let Err(e) = server.start() {

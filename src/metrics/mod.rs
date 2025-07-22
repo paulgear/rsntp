@@ -30,7 +30,6 @@ struct ClientLabels {
 
 pub struct MetricsCollector {
     registry: Arc<Registry>,
-    enabled: bool,
     packet_counter: Family<PacketLabels, Counter>,
     first_seen_gauge: Family<PacketLabels, Gauge>,
     last_seen_gauge: Family<PacketLabels, Gauge>,
@@ -40,7 +39,7 @@ pub struct MetricsCollector {
 }
 
 impl MetricsCollector {
-    pub fn new(enabled: bool, minute_limit: u64, hour_limit: u64, day_limit: u64) -> Self {
+    pub fn new(minute_limit: u64, hour_limit: u64, day_limit: u64) -> Self {
         let mut registry = Registry::default();
 
         let packet_counter = Family::<PacketLabels, Counter>::default();
@@ -52,43 +51,40 @@ impl MetricsCollector {
 
         let unique_clients_gauge = Family::<ClientLabels, Gauge>::default();
 
-        let client_cache = if enabled {
-            Some(ClientCache::new(minute_limit, hour_limit, day_limit))
-        } else {
+        let client_cache = if minute_limit == 0 || hour_limit == 0 || day_limit == 0 {
             None
+        } else {
+            Some(ClientCache::new(minute_limit, hour_limit, day_limit))
         };
 
-        if enabled {
-            registry.register(
-                "rsntp_packet_count",
-                "NTP packet event counters",
-                packet_counter.clone(),
-            );
-            registry.register(
-                "rsntp_first_seen_time",
-                "First time each packet event was seen (Unix nanoseconds)",
-                first_seen_gauge.clone(),
-            );
-            registry.register(
-                "rsntp_last_seen_time",
-                "Last time each packet event was seen (Unix nanoseconds)",
-                last_seen_gauge.clone(),
-            );
-            registry.register(
-                "rsntp_packet_size_bytes",
-                "Histogram of packet sizes in bytes",
-                packet_size_histogram.clone(),
-            );
-            registry.register(
-                "rsntp_unique_clients",
-                "Number of unique client IP addresses by time period",
-                unique_clients_gauge.clone(),
-            );
-        }
+        registry.register(
+            "rsntp_packet_count",
+            "NTP packet event counters",
+            packet_counter.clone(),
+        );
+        registry.register(
+            "rsntp_first_seen_time",
+            "First time each packet event was seen (Unix nanoseconds)",
+            first_seen_gauge.clone(),
+        );
+        registry.register(
+            "rsntp_last_seen_time",
+            "Last time each packet event was seen (Unix nanoseconds)",
+            last_seen_gauge.clone(),
+        );
+        registry.register(
+            "rsntp_packet_size_bytes",
+            "Histogram of packet sizes in bytes",
+            packet_size_histogram.clone(),
+        );
+        registry.register(
+            "rsntp_unique_clients",
+            "Number of unique client IP addresses by time period",
+            unique_clients_gauge.clone(),
+        );
 
         Self {
             registry: Arc::new(registry),
-            enabled,
             packet_counter,
             first_seen_gauge,
             last_seen_gauge,
@@ -96,10 +92,6 @@ impl MetricsCollector {
             unique_clients_gauge,
             client_cache,
         }
-    }
-
-    pub fn is_enabled(&self) -> bool {
-        self.enabled
     }
 
     pub fn registry(&self) -> Arc<Registry> {
@@ -114,10 +106,6 @@ impl MetricsCollector {
     }
 
     pub fn increment_packet_counter(&self, event: PacketEvent, thread_id: u32) {
-        if !self.enabled {
-            return;
-        }
-
         let labels = PacketLabels {
             thread_id: thread_id.to_string(),
             packet_event: event.as_str().to_string(),
@@ -135,10 +123,6 @@ impl MetricsCollector {
     }
 
     pub fn update_first_seen_time(&self, event: PacketEvent, thread_id: u32) {
-        if !self.enabled {
-            return;
-        }
-
         let current_time = Self::current_time_nanos();
         let labels = PacketLabels {
             thread_id: thread_id.to_string(),
@@ -165,10 +149,6 @@ impl MetricsCollector {
     }
 
     pub fn update_last_seen_time(&self, event: PacketEvent, thread_id: u32) {
-        if !self.enabled {
-            return;
-        }
-
         let current_time = Self::current_time_nanos();
         let labels = PacketLabels {
             thread_id: thread_id.to_string(),
@@ -188,18 +168,10 @@ impl MetricsCollector {
     }
 
     pub fn record_packet_size(&self, size_bytes: usize) {
-        if !self.enabled {
-            return;
-        }
-
         self.packet_size_histogram.observe(size_bytes as f64);
     }
 
     pub fn add_client_ip(&self, ip: IpAddr) {
-        if !self.enabled {
-            return;
-        }
-
         if let Some(ref cache) = self.client_cache {
             let (minute_new, hour_new, day_new) = cache.add_client(ip);
             let ip_version = match ip {
