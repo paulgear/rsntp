@@ -232,4 +232,10 @@ impl MetricsCollector {
             }
         }
     }
+
+    pub fn update_packet_counter(&self, event: PacketEvent, thread_id: u32) {
+        self.increment_packet_counter(event, thread_id);
+        self.update_first_seen_time(event, thread_id);
+        self.update_last_seen_time(event, thread_id);
+    }
 }
