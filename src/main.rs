@@ -518,7 +518,7 @@ fn initialize_metrics(metrics_port: Option<u16>, client_cache_limits: (usize, us
         });
         Some(collector)
     } else {
-        Some(Arc::new(metrics::MetricsCollector::new(false, 0, 0, 0)))
+        None
     }
 }
 
