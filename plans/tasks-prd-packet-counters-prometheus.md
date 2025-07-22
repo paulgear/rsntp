@@ -20,11 +20,11 @@
 
 ## Tasks
 
-- [ ] 1. Set up Dependencies and Project Structure
-  - [ ] 1.1 Add prometheus_client, moka, and hyper dependencies to Cargo.toml
-  - [ ] 1.2 Create src/metrics/ directory structure
-  - [ ] 1.3 Create src/metrics/mod.rs with public module declarations
-  - [ ] 1.4 Create placeholder files for events.rs, client_cache.rs, and http_server.rs
+- [x] 1. Set up Dependencies and Project Structure
+  - [x] 1.1 Add prometheus_client, moka, and hyper dependencies to Cargo.toml
+  - [x] 1.2 Create src/metrics/ directory structure
+  - [x] 1.3 Create src/metrics/mod.rs with public module declarations
+  - [x] 1.4 Create placeholder files for events.rs, client_cache.rs, and http_server.rs
 
 - [ ] 2. Implement Core Metrics Module
   - [ ] 2.1 Define PacketEvent, GaugeEvent, and HistogramEvent enums in events.rs
