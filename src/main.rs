@@ -133,6 +133,7 @@ impl NtpPacket {
 
         if let Some(ref m) = metrics {
             m.record_packet_size(len);
+            m.add_client_ip(addr.ip());
         }
 
         let local_ts = NtpTimestamp::now();
@@ -163,7 +164,6 @@ impl NtpPacket {
             m.increment_packet_counter(metrics::events::PacketEvent::ServerRequestReceived, thread_id);
             m.update_first_seen_time(metrics::events::PacketEvent::ServerRequestReceived, thread_id);
             m.update_last_seen_time(metrics::events::PacketEvent::ServerRequestReceived, thread_id);
-            m.add_client_ip(addr.ip());
         }
 
         Ok(NtpPacket{
