@@ -42,11 +42,11 @@
   - [x] 3.3 Parse client cache limits into separate values for minute/hour/day
   - [x] 3.4 Pass metrics configuration to MetricsCollector constructor
 
-- [ ] 4. Implement HTTP Metrics Endpoint
-  - [ ] 4.1 Create HTTP server using hyper in http_server.rs
-  - [ ] 4.2 Implement /metrics endpoint that returns Prometheus format
-  - [ ] 4.3 Start HTTP server in separate lower-priority thread
-  - [ ] 4.4 Handle server startup and shutdown gracefully
+- [x] 4. Implement HTTP Metrics Endpoint
+  - [x] 4.1 Create HTTP server using std::net in http_server.rs
+  - [x] 4.2 Implement /metrics endpoint that returns Prometheus format
+  - [x] 4.3 Start HTTP server in separate lower-priority thread
+  - [x] 4.4 Handle server startup and shutdown gracefully
 
 - [ ] 5. Integrate Metrics into Main Application
   - [ ] 5.1 Initialize MetricsCollector in main.rs when --metrics-port is provided

@@ -2,6 +2,8 @@ pub mod client_cache;
 pub mod events;
 pub mod http_server;
 
+pub use self::http_server::MetricsServer;
+
 use crate::metrics::client_cache::ClientCache;
 use crate::metrics::events::PacketEvent;
 use prometheus_client::encoding::EncodeLabelSet;
