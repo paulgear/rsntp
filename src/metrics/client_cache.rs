@@ -115,6 +115,25 @@ mod tests {
     }
 
     #[test]
+    fn test_no_cache() {
+        let cache = ClientCache::new(&[]);
+        let ip = IpAddr::from_str("192.0.2.1").unwrap();
+
+        // Increment the client counter 10 times and make sure it returns zero when retrieved.
+        for i in 1..=10 {
+            let result = cache.inc_client(ip);
+            assert_eq!(result.len(), 1);
+            let result = cache.get_client(ip);
+            assert_eq!(result[0], i);
+        }
+
+        // Get the list of clients and make sure there it's empty.
+        let result = cache.get_clients();
+        assert_eq!(result.len(), 1);
+
+    }
+
+    #[test]
     fn test_multi_cache() {
         let cache = ClientCache::new(&[(10, 2), (10, 10), (10, 1)]);
 
