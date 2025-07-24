@@ -29,13 +29,13 @@ struct ClientLabels {
 }
 
 pub struct MetricsCollector {
-    registry: Arc<Registry>,
-    packet_counter: Family<PacketLabels, Counter>,
+    client_cache: ClientCache,
     first_seen_gauge: Family<PacketLabels, Gauge>,
     last_seen_gauge: Family<PacketLabels, Gauge>,
+    packet_counter: Family<PacketLabels, Counter>,
     packet_size_histogram: Histogram,
+    registry: Arc<Registry>,
     unique_clients_gauge: Family<ClientLabels, Gauge>,
-    client_cache: Option<ClientCache>,
 }
 
 impl MetricsCollector {
