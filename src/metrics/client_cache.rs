@@ -31,6 +31,13 @@ impl ClientCache {
         }
     }
 
+    pub fn get_client(&self, ip: IpAddr) -> Vec<u64> {
+        self.caches
+            .iter()
+            .map(|cache| cache.as_ref().map_or(0, |c| c.get(&ip).unwrap_or(0)))
+            .collect()
+    }
+
     pub fn get_counts(&self) -> Vec<u64> {
         self.caches
             .iter()
