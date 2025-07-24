@@ -30,31 +30,3 @@ impl PacketEvent {
         }
     }
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum GaugeEvent {
-    FirstSeenTime,
-    LastSeenTime,
-}
-
-impl GaugeEvent {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            GaugeEvent::FirstSeenTime => "first_seen_time",
-            GaugeEvent::LastSeenTime => "last_seen_time",
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum HistogramEvent {
-    PacketSize,
-}
-
-impl HistogramEvent {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            HistogramEvent::PacketSize => "packet_size_bytes",
-        }
-    }
-}
