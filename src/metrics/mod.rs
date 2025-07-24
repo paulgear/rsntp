@@ -54,8 +54,23 @@ impl MetricsCollector {
         let client_cache = if minute_limit == 0 || hour_limit == 0 || day_limit == 0 {
             None
         } else {
-            Some(ClientCache::new(minute_limit, hour_limit, day_limit))
+            Some(ClientCache::new(&[(minute_limit, 60), (hour_limit, 3600), (day_limit, 86400)]))
         };
+
+        // Pre-create gauges for each period and IP version
+        if client_cache.is_some() {
+            let periods = ["60", "3600", "86400"];
+            let ip_versions = ["4", "6"];
+            for &period in &periods {
+                for &ip_version in &ip_versions {
+                    let labels = ClientLabels {
+                        period: period.to_string(),
+                        ip_version: ip_version.to_string(),
+                    };
+                    unique_clients_gauge.get_or_create(&labels);
+                }
+            }
+        }
 
         registry.register(
             "rsntp_packet_count",
@@ -158,35 +173,7 @@ impl MetricsCollector {
 
     pub fn add_client_ip(&self, ip: IpAddr) {
         if let Some(ref cache) = self.client_cache {
-            let (minute_new, hour_new, day_new) = cache.add_client(ip);
-            let ip_version = match ip {
-                IpAddr::V4(_) => "4",
-                IpAddr::V6(_) => "6",
-            };
-
-            if minute_new {
-                let labels = ClientLabels {
-                    period: "minute".to_string(),
-                    ip_version: ip_version.to_string(),
-                };
-                self.unique_clients_gauge.get_or_create(&labels).inc();
-            }
-
-            if hour_new {
-                let labels = ClientLabels {
-                    period: "hour".to_string(),
-                    ip_version: ip_version.to_string(),
-                };
-                self.unique_clients_gauge.get_or_create(&labels).inc();
-            }
-
-            if day_new {
-                let labels = ClientLabels {
-                    period: "day".to_string(),
-                    ip_version: ip_version.to_string(),
-                };
-                self.unique_clients_gauge.get_or_create(&labels).inc();
-            }
+            cache.inc_client(ip);
         }
     }
 
