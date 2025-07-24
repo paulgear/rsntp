@@ -122,14 +122,14 @@ mod tests {
         // Increment the client counter 10 times and make sure it returns zero when retrieved.
         for i in 1..=10 {
             let result = cache.inc_client(ip);
-            assert_eq!(result.len(), 1);
+            assert_eq!(result.len(), 0);
             let result = cache.get_client(ip);
-            assert_eq!(result[0], i);
+            assert_eq!(result.len(), 0);
         }
 
         // Get the list of clients and make sure there it's empty.
         let result = cache.get_clients();
-        assert_eq!(result.len(), 1);
+        assert_eq!(result.len(), 0);
 
     }
 
