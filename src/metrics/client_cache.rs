@@ -5,84 +5,51 @@ use std::time::Duration;
 
 #[derive(Clone)]
 pub struct ClientCache {
-    cache1: Option<Arc<Cache<IpAddr, u64>>>,
-    cache2: Option<Arc<Cache<IpAddr, u64>>>,
-    cache3: Option<Arc<Cache<IpAddr, u64>>>,
+    caches: Vec<Option<Arc<Cache<IpAddr, u64>>>>,
 }
 
 impl ClientCache {
-    pub fn new(limit1: u64, limit2: u64, limit3: u64) -> Self {
-        Self::new_with_ttls(limit1, limit2, limit3, 60, 3600, 86400)
+    pub fn new(configs: &[(u64, u64)]) -> Self {
+        let caches = configs
+            .iter()
+            .map(|&(limit, ttl)| Self::create_cache(limit, ttl))
+            .collect();
+
+        Self { caches }
     }
 
-    pub fn new_with_ttls(limit1: u64, limit2: u64, limit3: u64, ttl1: u64, ttl2: u64, ttl3: u64) -> Self {
-        let cache1 = if limit1 > 0 {
-            Some(Arc::new(Cache::builder()
-                .max_capacity(limit1)
-                .time_to_live(Duration::from_secs(ttl1))
-                .build()))
+    fn create_cache(limit: u64, ttl: u64) -> Option<Arc<Cache<IpAddr, u64>>> {
+        if limit > 0 {
+            Some(Arc::new(
+                Cache::builder()
+                    .max_capacity(limit)
+                    .time_to_live(Duration::from_secs(ttl))
+                    .build(),
+            ))
         } else {
             None
-        };
-
-        let cache2 = if limit2 > 0 {
-            Some(Arc::new(Cache::builder()
-                .max_capacity(limit2)
-                .time_to_live(Duration::from_secs(ttl2))
-                .build()))
-        } else {
-            None
-        };
-
-        let cache3 = if limit3 > 0 {
-            Some(Arc::new(Cache::builder()
-                .max_capacity(limit3)
-                .time_to_live(Duration::from_secs(ttl3))
-                .build()))
-        } else {
-            None
-        };
-
-        Self {
-            cache1,
-            cache2,
-            cache3,
         }
     }
 
-    pub fn inc_client(&self, ip: IpAddr) -> (u64, u64, u64) {
-        let count1 = if let Some(cache) = &self.cache1 {
-            let count = cache.get(&ip).unwrap_or(0) + 1;
-            cache.insert(ip, count);
+    fn increment_cache(cache: &Option<Arc<Cache<IpAddr, u64>>>, ip: IpAddr) -> u64 {
+        cache.as_ref().map_or(0, |c| {
+            let count = c.get(&ip).unwrap_or(0) + 1;
+            c.insert(ip, count);
             count
-        } else {
-            0
-        };
-
-        let count2 = if let Some(cache) = &self.cache2 {
-            let count = cache.get(&ip).unwrap_or(0) + 1;
-            cache.insert(ip, count);
-            count
-        } else {
-            0
-        };
-
-        let count3 = if let Some(cache) = &self.cache3 {
-            let count = cache.get(&ip).unwrap_or(0) + 1;
-            cache.insert(ip, count);
-            count
-        } else {
-            0
-        };
-
-        (count1, count2, count3)
+        })
     }
 
-    pub fn get_counts(&self) -> (u64, u64, u64) {
-        (
-            self.cache1.as_ref().map_or(0, |c| c.entry_count()),
-            self.cache2.as_ref().map_or(0, |c| c.entry_count()),
-            self.cache3.as_ref().map_or(0, |c| c.entry_count()),
-        )
+    pub fn inc_client(&self, ip: IpAddr) -> Vec<u64> {
+        self.caches
+            .iter()
+            .map(|cache| Self::increment_cache(cache, ip))
+            .collect()
+    }
+
+    pub fn get_counts(&self) -> Vec<u64> {
+        self.caches
+            .iter()
+            .map(|cache| cache.as_ref().map_or(0, |c| c.entry_count()))
+            .collect()
     }
 }
