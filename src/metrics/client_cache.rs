@@ -99,11 +99,19 @@ mod tests {
         let cache = ClientCache::new(&[(10, 60)]);
         let ip = IpAddr::from_str("192.0.2.1").unwrap();
 
+        // Increment the client counter 10 times and make sure it returns the
+        // same thing when retrieved.
         for i in 1..=10 {
             let result = cache.inc_client(ip);
             assert_eq!(result.len(), 1);
+            let result = cache.get_client(ip);
             assert_eq!(result[0], i);
         }
+
+        // Get the list of clients and make sure there's only 1 entry, and it matches the one we've put in.
+        let result = cache.get_clients();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].0, ip);
     }
 
     #[test]
