@@ -540,7 +540,7 @@ fn main() {
     opts.optopt("s", "server-address", "set server address (127.0.0.1:11123)", "ADDR:PORT");
     opts.optopt("u", "user", "run as USER", "USER");
     opts.optopt("r", "root", "change root directory", "DIR");
-    opts.optopt("", "metrics-port", "enable metrics endpoint on PORT", "PORT");
+    opts.optopt("", "metrics-port", "enable metrics endpoint on PORT; default: metrics disabled", "PORT");
     opts.optmulti("", "client-cache", "set client cache limit,ttl in Kb,seconds (e.g., 64,60) - multiple allowed", "LIMIT,TTL");
     opts.optflag("d", "debug", "Enable debug messages");
     opts.optflag("h", "help", "Print this help message");
