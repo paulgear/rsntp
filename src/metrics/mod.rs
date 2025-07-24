@@ -171,10 +171,8 @@ impl MetricsCollector {
         self.packet_size_histogram.observe(size_bytes as f64);
     }
 
-    pub fn add_client_ip(&self, ip: IpAddr) {
-        if let Some(ref cache) = self.client_cache {
-            cache.inc_client(ip);
-        }
+    pub fn inc_client(&self, ip: IpAddr) {
+        self.client_cache.inc_client(ip);
     }
 
     pub fn update_packet_counter(&self, event: PacketEvent, thread_id: u32) {

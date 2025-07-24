@@ -134,7 +134,7 @@ impl NtpPacket {
 
         if let Some(ref m) = metrics {
             m.record_packet_size(len);
-            m.add_client_ip(addr.ip());
+            m.inc_client(addr.ip());
         }
 
         let local_ts = NtpTimestamp::now();
