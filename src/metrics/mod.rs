@@ -204,77 +204,86 @@ mod tests {
 
     #[test]
     fn test_new_metrics_collector() {
-        let collector = TestCleanup(MetricsCollector::new_for_test(100, 1000, 10000));
+        let collector = MetricsCollector::new(100, 1000, 10000);
         assert!(collector.client_cache.is_some());
     }
 
     #[test]
     fn test_new_metrics_collector_disabled_cache() {
-        let collector = TestCleanup(MetricsCollector::new_for_test(0, 1000, 10000));
+        let collector = MetricsCollector::new(0, 1000, 10000);
         assert!(collector.client_cache.is_none());
     }
 
     #[test]
     fn test_increment_packet_counter() {
-        let collector = TestCleanup(MetricsCollector::new_for_test(100, 1000, 10000));
+        let collector = MetricsCollector::new(100, 1000, 10000);
         collector.increment_packet_counter(PacketEvent::ServerRequestReceived, 1);
+        // Test passes if no panic occurs
     }
 
     #[test]
     fn test_update_first_seen_time() {
-        let collector = TestCleanup(MetricsCollector::new_for_test(100, 1000, 10000));
+        let collector = MetricsCollector::new(100, 1000, 10000);
         collector.update_first_seen_time(PacketEvent::ServerRequestReceived, 1);
+        // Test passes if no panic occurs
     }
 
     #[test]
     fn test_update_last_seen_time() {
-        let collector = TestCleanup(MetricsCollector::new_for_test(100, 1000, 10000));
+        let collector = MetricsCollector::new(100, 1000, 10000);
         collector.update_last_seen_time(PacketEvent::ServerRequestReceived, 1);
+        // Test passes if no panic occurs
     }
 
     #[test]
     fn test_record_packet_size() {
-        let collector = TestCleanup(MetricsCollector::new_for_test(100, 1000, 10000));
+        let collector = MetricsCollector::new(100, 1000, 10000);
         collector.record_packet_size(48);
         collector.record_packet_size(128);
+        // Test passes if no panic occurs
     }
 
     #[test]
     fn test_add_client_ip_v4() {
-        let collector = TestCleanup(MetricsCollector::new_for_test(100, 1000, 10000));
+        let collector = MetricsCollector::new(100, 1000, 10000);
         let ip = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1));
         collector.add_client_ip(ip);
+        // Test passes if no panic occurs
     }
 
     #[test]
     fn test_add_client_ip_v6() {
-        let collector = TestCleanup(MetricsCollector::new_for_test(100, 1000, 10000));
+        let collector = MetricsCollector::new(100, 1000, 10000);
         let ip = IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1));
         collector.add_client_ip(ip);
+        // Test passes if no panic occurs
     }
 
     #[test]
     fn test_add_client_ip_disabled_cache() {
-        let collector = TestCleanup(MetricsCollector::new_for_test(0, 1000, 10000));
+        let collector = MetricsCollector::new(0, 1000, 10000);
         let ip = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1));
         collector.add_client_ip(ip);
+        // Test passes if no panic occurs
     }
 
     #[test]
     fn test_update_packet_counter() {
-        let collector = TestCleanup(MetricsCollector::new_for_test(100, 1000, 10000));
+        let collector = MetricsCollector::new(100, 1000, 10000);
         collector.update_packet_counter(PacketEvent::ServerRequestReceived, 1);
+        // Test passes if no panic occurs
     }
 
     #[test]
     fn test_registry_access() {
-        let collector = TestCleanup(MetricsCollector::new_for_test(0, 0, 0));
+        let collector = MetricsCollector::new(0, 0, 0);
         let _registry = collector.registry();
     }
 
     #[test]
     fn test_gauge_operations_simple() {
-        let collector = TestCleanup(MetricsCollector::new_for_test(0, 0, 0));
+        let collector = MetricsCollector::new(0, 0, 0);
+        // Test just the gauge creation without calling methods
         let labels = PacketLabels {
             thread_id: "1".to_string(),
             packet_event: "test".to_string(),
