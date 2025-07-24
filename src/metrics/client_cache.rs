@@ -31,6 +31,13 @@ impl ClientCache {
         }
     }
 
+    pub fn get_counts(&self) -> Vec<u64> {
+        self.caches
+            .iter()
+            .map(|cache| cache.as_ref().map_or(0, |c| c.entry_count()))
+            .collect()
+    }
+
     fn increment_cache(cache: &Option<Arc<Cache<IpAddr, u64>>>, ip: IpAddr) -> u64 {
         cache.as_ref().map_or(0, |c| {
             let count = c.get(&ip).unwrap_or(0) + 1;
@@ -46,10 +53,4 @@ impl ClientCache {
             .collect()
     }
 
-    pub fn get_counts(&self) -> Vec<u64> {
-        self.caches
-            .iter()
-            .map(|cache| cache.as_ref().map_or(0, |c| c.entry_count()))
-            .collect()
-    }
 }
