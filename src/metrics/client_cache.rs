@@ -6,16 +6,24 @@ use std::time::Duration;
 #[derive(Clone)]
 pub struct ClientCache {
     caches: Vec<Option<Arc<Cache<IpAddr, u64>>>>,
+    ttls: Vec<u64>,
 }
 
 impl ClientCache {
     pub fn new(configs: &[(u64, u64)]) -> Self {
-        let caches = configs
+        // Sort caches by descending TTL so that we can use the keys in the first one
+        // as the definitive list of clients.
+        let mut sorted_configs = configs.to_vec();
+        sorted_configs.sort_by(|a, b| b.1.cmp(&a.1));
+
+        let caches = sorted_configs
             .iter()
             .map(|&(limit, ttl)| Self::create_cache(limit, ttl))
             .collect();
 
-        Self { caches }
+        let ttls = sorted_configs.iter().map(|&(_, ttl)| ttl).collect();
+
+        Self { caches, ttls }
     }
 
     fn create_cache(limit: u64, ttl: u64) -> Option<Arc<Cache<IpAddr, u64>>> {
@@ -51,6 +59,10 @@ impl ClientCache {
             .iter()
             .map(|cache| cache.as_ref().map_or(0, |c| c.entry_count()))
             .collect()
+    }
+
+    fn get_ttls(&self) -> &[u64] {
+        &self.ttls
     }
 
     fn increment_cache(cache: &Option<Arc<Cache<IpAddr, u64>>>, ip: IpAddr) -> u64 {
@@ -92,6 +104,49 @@ mod tests {
             assert_eq!(result.len(), 1);
             assert_eq!(result[0], i);
         }
+    }
+
+    #[test]
+    fn test_multi_cache() {
+        let cache = ClientCache::new(&[(10, 2), (10, 10), (10, 1)]);
+
+        // Confirm that the caches are sorted by descending TTL
+        assert_eq!(cache.get_ttls(), &[10, 2, 1]);
+
+        // Increment a client's counter a few times and make sure it returns the
+        // same count for each cache.
+        let ip = IpAddr::from_str("192.0.2.1").unwrap();
+        for i in 1..=10 {
+            let result = cache.inc_client(ip);
+            assert_eq!(result.len(), 3);
+            let result = cache.get_client(ip);
+            assert_eq!(result[0], i);
+            assert_eq!(result[1], i);
+            assert_eq!(result[2], i);
+        }
+
+        // Wait for the 3rd cache to expire and make sure the client is no longer
+        // present in the 3rd cache but present in the others.
+        std::thread::sleep(std::time::Duration::from_millis(1_001));
+        let result = cache.get_client(ip);
+        assert_eq!(result[0], 10);
+        assert_eq!(result[1], 10);
+        assert_eq!(result[2], 0);
+
+        // Get the list of clients and make sure there are only 2 entries, and the IP
+        // is present in them.
+        let result = cache.get_clients();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].0, ip);
+        assert_eq!(result[1].0, ip);
+
+        // Wait for the 2nd cache to expire and make sure the client is no longer
+        // present in the 2nd cache but present in the others.
+        std::thread::sleep(std::time::Duration::from_millis(1_001));
+        let result = cache.get_client(ip);
+        assert_eq!(result[0], 10);
+        assert_eq!(result[1], 0);
+        assert_eq!(result[2], 0);
     }
 
     // WARNING: This test seems rather timing sensitive.  The sleep durations have been
