@@ -20,6 +20,7 @@ extern crate net2;
 extern crate privdrop;
 extern crate prometheus_client;
 extern crate rand;
+extern crate tiny_http;
 
 use std::thread;
 use std::env;
