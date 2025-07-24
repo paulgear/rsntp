@@ -1,2 +1,5 @@
-target/
+.amazonq/
 **/*.rs.bk
+target/
+tmp/
+workflows
