@@ -120,7 +120,7 @@ mod tests {
         let ip = IpAddr::from_str("192.0.2.1").unwrap();
 
         // Increment the client counter 10 times and make sure it returns zero when retrieved.
-        for i in 1..=10 {
+        for _i in 1..=10 {
             let result = cache.inc_client(ip);
             assert_eq!(result.len(), 0);
             let result = cache.get_client(ip);

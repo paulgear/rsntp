@@ -370,7 +370,7 @@ impl NtpServer {
                                 }
                             }
                         },
-                        none => {}
+                        _none => {}
                     }
                 },
                 Err(e) => {
