@@ -39,36 +39,26 @@ pub struct MetricsCollector {
 }
 
 impl MetricsCollector {
-    pub fn new(minute_limit: u64, hour_limit: u64, day_limit: u64) -> Self {
+    pub fn new(cache_configs: &[(u64, u64)]) -> Self {
         let mut registry = Registry::default();
 
-        let packet_counter = Family::<PacketLabels, Counter>::default();
+        let client_cache = ClientCache::new(cache_configs);
         let first_seen_gauge = Family::<PacketLabels, Gauge>::default();
         let last_seen_gauge = Family::<PacketLabels, Gauge>::default();
-
-        // Histogram buckets: <48, 48-56, 56-128, 128+ bytes
+        let packet_counter = Family::<PacketLabels, Counter>::default();
         let packet_size_histogram = Histogram::new(vec![48.0, 56.0, 128.0].into_iter());
 
+        // Create gauges for each period and IP version
         let unique_clients_gauge = Family::<ClientLabels, Gauge>::default();
-
-        let client_cache = if minute_limit == 0 || hour_limit == 0 || day_limit == 0 {
-            None
-        } else {
-            Some(ClientCache::new(&[(minute_limit, 60), (hour_limit, 3600), (day_limit, 86400)]))
-        };
-
-        // Pre-create gauges for each period and IP version
-        if client_cache.is_some() {
-            let periods = ["60", "3600", "86400"];
-            let ip_versions = ["4", "6"];
-            for &period in &periods {
-                for &ip_version in &ip_versions {
-                    let labels = ClientLabels {
-                        period: period.to_string(),
-                        ip_version: ip_version.to_string(),
-                    };
-                    unique_clients_gauge.get_or_create(&labels);
-                }
+        let periods: Vec<String> = cache_configs.iter().map(|(_, ttl)| ttl.to_string()).collect();
+        let ip_versions = ["4", "6"];
+        for &ip_version in &ip_versions {
+            for period in &periods {
+                let labels = ClientLabels {
+                    ip_version: ip_version.to_string(),
+                    period: period.clone(),
+                };
+                let _ = unique_clients_gauge.get_or_create(&labels);
             }
         }
 
@@ -188,41 +178,29 @@ mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
     #[test]
-    fn test_new_metrics_collector() {
-        let collector = MetricsCollector::new(100, 1000, 10000);
-        assert!(collector.client_cache.is_some());
-    }
-
-    #[test]
-    fn test_new_metrics_collector_disabled_cache() {
-        let collector = MetricsCollector::new(0, 1000, 10000);
-        assert!(collector.client_cache.is_none());
-    }
-
-    #[test]
     fn test_increment_packet_counter() {
-        let collector = MetricsCollector::new(100, 1000, 10000);
+        let collector = MetricsCollector::new(&[(100, 60), (1000, 3600), (10000, 86400)]);
         collector.increment_packet_counter(PacketEvent::ServerRequestReceived, 1);
         // Test passes if no panic occurs
     }
 
     #[test]
     fn test_update_first_seen_time() {
-        let collector = MetricsCollector::new(100, 1000, 10000);
+        let collector = MetricsCollector::new(&[(100, 60), (1000, 3600), (10000, 86400)]);
         collector.update_first_seen_time(PacketEvent::ServerRequestReceived, 1);
         // Test passes if no panic occurs
     }
 
     #[test]
     fn test_update_last_seen_time() {
-        let collector = MetricsCollector::new(100, 1000, 10000);
+        let collector = MetricsCollector::new(&[(100, 60), (1000, 3600), (10000, 86400)]);
         collector.update_last_seen_time(PacketEvent::ServerRequestReceived, 1);
         // Test passes if no panic occurs
     }
 
     #[test]
     fn test_record_packet_size() {
-        let collector = MetricsCollector::new(100, 1000, 10000);
+        let collector = MetricsCollector::new(&[(100, 60), (1000, 3600), (10000, 86400)]);
         collector.record_packet_size(48);
         collector.record_packet_size(128);
         // Test passes if no panic occurs
@@ -230,44 +208,44 @@ mod tests {
 
     #[test]
     fn test_add_client_ip_v4() {
-        let collector = MetricsCollector::new(100, 1000, 10000);
+        let collector = MetricsCollector::new(&[(100, 60), (1000, 3600), (10000, 86400)]);
         let ip = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1));
-        collector.add_client_ip(ip);
+        collector.inc_client(ip);
         // Test passes if no panic occurs
     }
 
     #[test]
     fn test_add_client_ip_v6() {
-        let collector = MetricsCollector::new(100, 1000, 10000);
+        let collector = MetricsCollector::new(&[(100, 60), (1000, 3600), (10000, 86400)]);
         let ip = IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1));
-        collector.add_client_ip(ip);
+        collector.inc_client(ip);
         // Test passes if no panic occurs
     }
 
     #[test]
     fn test_add_client_ip_disabled_cache() {
-        let collector = MetricsCollector::new(0, 1000, 10000);
+        let collector = MetricsCollector::new(&[]);
         let ip = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1));
-        collector.add_client_ip(ip);
+        collector.inc_client(ip);
         // Test passes if no panic occurs
     }
 
     #[test]
     fn test_update_packet_counter() {
-        let collector = MetricsCollector::new(100, 1000, 10000);
+        let collector = MetricsCollector::new(&[(100, 60), (1000, 3600), (10000, 86400)]);
         collector.update_packet_counter(PacketEvent::ServerRequestReceived, 1);
         // Test passes if no panic occurs
     }
 
     #[test]
     fn test_registry_access() {
-        let collector = MetricsCollector::new(0, 0, 0);
+        let collector = MetricsCollector::new(&[]);
         let _registry = collector.registry();
     }
 
     #[test]
     fn test_gauge_operations_simple() {
-        let collector = MetricsCollector::new(0, 0, 0);
+        let collector = MetricsCollector::new(&[]);
         // Test just the gauge creation without calling methods
         let labels = PacketLabels {
             thread_id: "1".to_string(),
