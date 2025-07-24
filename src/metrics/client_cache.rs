@@ -38,6 +38,14 @@ impl ClientCache {
             .collect()
     }
 
+    pub fn get_clients(&self) -> Vec<(IpAddr, u64)> {
+        self.caches
+            .iter()
+            .filter_map(|cache| cache.as_ref())
+            .flat_map(|cache| cache.iter().map(|(ip, count)| (*ip, count)))
+            .collect()
+    }
+
     pub fn get_counts(&self) -> Vec<u64> {
         self.caches
             .iter()
@@ -60,6 +68,13 @@ impl ClientCache {
             .collect()
     }
 
+    fn run_pending_tasks(&self) {
+        self.caches
+            .iter()
+            .filter_map(|cache| cache.as_ref())
+            .for_each(|cache| cache.run_pending_tasks());
+    }
+
 }
 
 #[cfg(test)]
@@ -79,35 +94,64 @@ mod tests {
         }
     }
 
+    // WARNING: This test seems rather timing sensitive.  The sleep durations have been
+    // chosen to try to favour the second set of IP addresses, but it may not always work.
     #[test]
     fn test_cache_limit() {
         let cache = ClientCache::new(&[(10, 60)]);
 
-        // Add 20 clients with contiguous IP addresses
-        for i in 1..=20 {
+        // Add 10 clients with contiguous IP addresses
+        for i in 1..=10 {
             let ip = IpAddr::from_str(&format!("192.0.2.{}", i)).unwrap();
             cache.inc_client(ip);
+            std::thread::sleep(std::time::Duration::from_millis(50));
         }
 
-        // Wait for cache eviction
-        std::thread::sleep(std::time::Duration::from_millis(1000));
+        // Add 10 more clients with contiguous IP addresses
+        for i in 11..=20 {
+            let ip = IpAddr::from_str(&format!("192.0.2.{}", i)).unwrap();
+            cache.inc_client(ip);
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+
+        // Check that the last 10 IPs are present
+        for i in 11..=20 {
+            let ip = IpAddr::from_str(&format!("192.0.2.{}", i)).unwrap();
+            let result = cache.get_client(ip);
+            assert_eq!(result[0], 1);
+        }
+
+        // Increment those again
+        for i in 11..=20 {
+            let ip = IpAddr::from_str(&format!("192.0.2.{}", i)).unwrap();
+            cache.inc_client(ip);
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+
+        // Force cache eviction
+        cache.run_pending_tasks();
+
+        // Display all clients
+        let clients = cache.get_clients();
+        println!("Cached clients: {:?}", clients);
 
         // Check that the cache has at most 10 entries
         let counts = cache.get_counts();
         assert_eq!(counts.len(), 1);
         assert!(counts[0] <= 10, "Cache should have at most 10 entries, got {}", counts[0]);
 
-        // Verify that some entries were evicted by checking total unique entries
-        let mut present_count = 0;
-        for i in 1..=20 {
+        // Check that the last 10 IPs are present (192.0.2.11 to 192.0.2.20)
+        for i in 11..=20 {
             let ip = IpAddr::from_str(&format!("192.0.2.{}", i)).unwrap();
             let result = cache.get_client(ip);
-            if result[0] > 0 {
-                present_count += 1;
-            }
+            assert!(result[0] > 0, "Cache for {} should be > 0, got {}", ip, result[0]);
         }
 
-        assert!(present_count <= 10, "Should have at most 10 present entries, got {}", present_count);
-        assert!(present_count > 0, "Should have some entries present");
+        // Check that the first 10 IPs are evicted (192.0.2.1 to 192.0.2.10)
+        for i in 1..=10 {
+            let ip = IpAddr::from_str(&format!("192.0.2.{}", i)).unwrap();
+            let result = cache.get_client(ip);
+            assert_eq!(result[0], 0);
+        }
     }
 }
