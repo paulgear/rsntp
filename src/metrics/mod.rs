@@ -63,11 +63,6 @@ impl MetricsCollector {
         }
 
         registry.register(
-            "rsntp_packet_count",
-            "NTP packet event counters",
-            packet_counter.clone(),
-        );
-        registry.register(
             "rsntp_first_seen_time",
             "First time each packet event was seen (Unix nanoseconds)",
             first_seen_gauge.clone(),
@@ -78,8 +73,13 @@ impl MetricsCollector {
             last_seen_gauge.clone(),
         );
         registry.register(
+            "rsntp_packet_count",
+            "NTP packet event counters",
+            packet_counter.clone(),
+        );
+        registry.register(
             "rsntp_packet_size_bytes",
-            "Histogram of packet sizes in bytes",
+            "NTP packet size in bytes",
             packet_size_histogram.clone(),
         );
         registry.register(
