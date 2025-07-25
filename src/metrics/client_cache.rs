@@ -61,7 +61,7 @@ impl ClientCache {
             .collect()
     }
 
-    fn get_ttls(&self) -> &[u64] {
+    pub fn get_ttls(&self) -> &[u64] {
         &self.ttls
     }
 

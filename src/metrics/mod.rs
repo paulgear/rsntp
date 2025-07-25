@@ -47,20 +47,7 @@ impl MetricsCollector {
         let last_seen_gauge = Family::<PacketLabels, Gauge>::default();
         let packet_counter = Family::<PacketLabels, Counter>::default();
         let packet_size_histogram = Histogram::new(vec![48.0, 56.0, 128.0].into_iter());
-
-        // Create gauges for each period and IP version
         let unique_clients_gauge = Family::<ClientLabels, Gauge>::default();
-        let periods: Vec<String> = cache_configs.iter().map(|(_, ttl)| ttl.to_string()).collect();
-        let ip_versions = ["4", "6"];
-        for &ip_version in &ip_versions {
-            for period in &periods {
-                let labels = ClientLabels {
-                    ip_version: ip_version.to_string(),
-                    period: period.clone(),
-                };
-                let _ = unique_clients_gauge.get_or_create(&labels);
-            }
-        }
 
         registry.register(
             "rsntp_first_seen_time",
@@ -170,6 +157,36 @@ impl MetricsCollector {
         self.update_first_seen_time(event, thread_id);
         self.update_last_seen_time(event, thread_id);
     }
+
+    fn set_gauge(&self, ip_version: &str, period: &u64, value: u64) {
+        let labels = ClientLabels {
+            ip_version: ip_version.to_string(),
+            period: period.to_string(),
+        };
+        let gauge = self.unique_clients_gauge.get_or_create(&labels);
+        gauge.set(value as i64);
+    }
+
+    fn update_unique_clients(&self) {
+        let periods = self.client_cache.get_ttls();
+        for period in periods {
+            let mut ipv4_count: u64 = 0;
+            let mut ipv6_count: u64 = 0;
+            for client in self.client_cache.get_clients() {
+                match client.0 {
+                    IpAddr::V4(_) => {
+                        ipv4_count += 1;
+                    },
+                    IpAddr::V6(_) => {
+                        ipv6_count += 1;
+                    },
+                }
+            }
+            self.set_gauge("4", period, ipv4_count);
+            self.set_gauge("6", period, ipv6_count);
+        }
+    }
+
 }
 
 #[cfg(test)]
