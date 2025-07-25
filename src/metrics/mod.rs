@@ -25,7 +25,6 @@ struct PacketLabels {
 #[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
 struct ClientLabels {
     period: String,
-    ip_version: String,
 }
 
 pub struct MetricsCollector {
@@ -158,32 +157,14 @@ impl MetricsCollector {
         self.update_last_seen_time(event, thread_id);
     }
 
-    fn set_gauge(&self, ip_version: &str, period: &u64, value: u64) {
-        let labels = ClientLabels {
-            ip_version: ip_version.to_string(),
-            period: period.to_string(),
-        };
-        let gauge = self.unique_clients_gauge.get_or_create(&labels);
-        gauge.set(value as i64);
-    }
-
+    // set unique_clients_gauge for each period to the count of elements in that period's cache
     fn update_unique_clients(&self) {
-        let periods = self.client_cache.get_ttls();
-        for period in periods {
-            let mut ipv4_count: u64 = 0;
-            let mut ipv6_count: u64 = 0;
-            for client in self.client_cache.get_clients() {
-                match client.0 {
-                    IpAddr::V4(_) => {
-                        ipv4_count += 1;
-                    },
-                    IpAddr::V6(_) => {
-                        ipv6_count += 1;
-                    },
-                }
-            }
-            self.set_gauge("4", period, ipv4_count);
-            self.set_gauge("6", period, ipv6_count);
+        for (count, period) in self.client_cache.iter_counts_ttls() {
+            let labels = ClientLabels {
+                period: period.to_string(),
+            };
+            let gauge = self.unique_clients_gauge.get_or_create(&labels);
+            gauge.set(count as i64);
         }
     }
 

@@ -5,7 +5,7 @@ use std::time::Duration;
 
 #[derive(Clone)]
 pub struct ClientCache {
-    caches: Vec<Option<Arc<Cache<IpAddr, u64>>>>,
+    caches: Vec<Arc<Cache<IpAddr, u64>>>,
     ttls: Vec<u64>,
 }
 
@@ -16,61 +16,53 @@ impl ClientCache {
         let mut sorted_configs = configs.to_vec();
         sorted_configs.sort_by(|a, b| b.1.cmp(&a.1));
 
-        let caches = sorted_configs
+        let (caches, ttls): (Vec<_>, Vec<_>) = sorted_configs
             .iter()
-            .map(|&(limit, ttl)| Self::create_cache(limit, ttl))
-            .collect();
-
-        let ttls = sorted_configs.iter().map(|&(_, ttl)| ttl).collect();
+            .filter(|&&(limit, _)| limit > 0)
+            .map(|&(limit, ttl)| (Self::create_cache(limit, ttl), ttl))
+            .unzip();
 
         Self { caches, ttls }
     }
 
-    fn create_cache(limit: u64, ttl: u64) -> Option<Arc<Cache<IpAddr, u64>>> {
-        if limit > 0 {
-            Some(Arc::new(
-                Cache::builder()
-                    .max_capacity(limit)
-                    .time_to_live(Duration::from_secs(ttl))
-                    .build(),
-            ))
-        } else {
-            None
-        }
+    fn create_cache(limit: u64, ttl: u64) -> Arc<Cache<IpAddr, u64>> {
+        Arc::new(
+            Cache::builder()
+                .max_capacity(limit)
+                .time_to_live(Duration::from_secs(ttl))
+                .build(),
+        )
     }
 
-    pub fn get_client(&self, ip: IpAddr) -> Vec<u64> {
+    fn get_client(&self, ip: IpAddr) -> Vec<u64> {
         self.caches
             .iter()
-            .map(|cache| cache.as_ref().map_or(0, |c| c.get(&ip).unwrap_or(0)))
+            .map(|cache| cache.get(&ip).unwrap_or(0))
             .collect()
     }
 
     pub fn get_clients(&self) -> Vec<(IpAddr, u64)> {
         self.caches
             .iter()
-            .filter_map(|cache| cache.as_ref())
             .flat_map(|cache| cache.iter().map(|(ip, count)| (*ip, count)))
             .collect()
     }
 
-    pub fn get_counts(&self) -> Vec<u64> {
+    fn get_counts(&self) -> Vec<u64> {
         self.caches
             .iter()
-            .map(|cache| cache.as_ref().map_or(0, |c| c.entry_count()))
+            .map(|cache| cache.entry_count())
             .collect()
     }
 
-    pub fn get_ttls(&self) -> &[u64] {
+    fn get_ttls(&self) -> &[u64] {
         &self.ttls
     }
 
-    fn increment_cache(cache: &Option<Arc<Cache<IpAddr, u64>>>, ip: IpAddr) -> u64 {
-        cache.as_ref().map_or(0, |c| {
-            let count = c.get(&ip).unwrap_or(0) + 1;
-            c.insert(ip, count);
-            count
-        })
+    fn increment_cache(cache: &Arc<Cache<IpAddr, u64>>, ip: IpAddr) -> u64 {
+        let count = cache.get(&ip).unwrap_or(0) + 1;
+        cache.insert(ip, count);
+        count
     }
 
     pub fn inc_client(&self, ip: IpAddr) -> Vec<u64> {
@@ -80,10 +72,13 @@ impl ClientCache {
             .collect()
     }
 
+    pub fn iter_counts_ttls(&self) -> impl Iterator<Item = (u64, &u64)> {
+        self.caches.iter().map(|cache| cache.entry_count()).zip(self.ttls.iter())
+    }
+
     fn run_pending_tasks(&self) {
         self.caches
             .iter()
-            .filter_map(|cache| cache.as_ref())
             .for_each(|cache| cache.run_pending_tasks());
     }
 
