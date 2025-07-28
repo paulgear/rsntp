@@ -80,7 +80,7 @@ impl ClientCache {
         &self.ttls
     }
 
-    fn increment_cache(cache: &Arc<Cache<IpAddr, u64>>, ip: IpAddr) -> u64 {
+    fn inc_cache(cache: &Arc<Cache<IpAddr, u64>>, ip: IpAddr) -> u64 {
         let count = cache.get(&ip).unwrap_or(0) + 1;
         cache.insert(ip, count);
         count
@@ -89,7 +89,7 @@ impl ClientCache {
     pub fn inc_client(&self, ip: IpAddr) -> Vec<u64> {
         self.caches
             .iter()
-            .map(|cache| Self::increment_cache(cache, ip))
+            .map(|cache| Self::inc_cache(cache, ip))
             .collect()
     }
 
