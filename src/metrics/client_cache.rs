@@ -42,6 +42,7 @@ impl ClientCache {
             .collect()
     }
 
+    #[allow(dead_code)]
     pub fn get_clients(&self) -> Vec<(IpAddr, u64)> {
         self.caches
             .iter()
@@ -66,6 +67,7 @@ impl ClientCache {
             .collect()
     }
 
+    #[allow(dead_code)]
     fn get_counts(&self) -> Vec<u64> {
         self.caches
             .iter()
@@ -73,6 +75,7 @@ impl ClientCache {
             .collect()
     }
 
+    #[allow(dead_code)]
     fn get_ttls(&self) -> &[u64] {
         &self.ttls
     }
@@ -94,6 +97,7 @@ impl ClientCache {
         self.caches.iter().map(|cache| cache.entry_count()).zip(self.ttls.iter())
     }
 
+    #[allow(dead_code)]
     fn run_pending_tasks(&self) {
         self.caches
             .iter()
