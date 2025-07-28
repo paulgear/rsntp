@@ -17,7 +17,8 @@ impl MetricsServer {
 
     // Print out all the clients and their cache counters in CSV format
     fn handle_clients(&self) -> Response<std::io::Cursor<Vec<u8>>> {
-        let clients = self.metrics.client_cache.get_clients_with_counters();
+        let mut clients = self.metrics.client_cache.get_clients_with_counters();
+        clients.sort_by_key(|(addr, _)| *addr);
         let mut output = clients
             .iter()
             .map(|(addr, counters)| {
