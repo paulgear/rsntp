@@ -542,7 +542,7 @@ fn main() {
     opts.optopt("u", "user", "run as USER", "USER");
     opts.optopt("r", "root", "change root directory", "DIR");
     opts.optopt("m", "metrics-address", "enable metrics endpoint on ADDR:PORT; default: metrics disabled", "ADDR:PORT");
-    opts.optmulti("c", "client-cache", "set client cache limit,ttl in Kb,seconds (e.g., 64,60) - multiple allowed", "LIMIT,TTL");
+    opts.optmulti("c", "client-cache", "set client cache limit,ttl in Kb,seconds (e.g., 64,60) - multiple allowed, default: client cache disabled", "LIMIT,TTL");
     opts.optflag("d", "debug", "Enable debug messages");
     opts.optflag("h", "help", "Print this help message");
 
