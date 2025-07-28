@@ -17,7 +17,7 @@ impl MetricsServer {
 
     fn handle_clients(&self) -> Response<std::io::Cursor<Vec<u8>>> {
         Response::from_string("")
-            .with_header(Header::from_bytes(&b"Content-Type"[..], &b"text/plain; version=0.0.4; charset=utf-8"[..]).unwrap())
+            .with_header("Content-Type: text/plain; version=0.0.4; charset=utf-8".parse::<Header>().unwrap())
     }
 
     fn handle_metrics(&self) -> Response<std::io::Cursor<Vec<u8>>> {
@@ -25,7 +25,7 @@ impl MetricsServer {
         let mut buffer = String::new();
         match encode(&mut buffer, &self.metrics.registry()) {
             Ok(_) => Response::from_string(buffer)
-                .with_header(Header::from_bytes(&b"Content-Type"[..], &b"text/plain; version=0.0.4; charset=utf-8"[..]).unwrap()),
+                .with_header("Content-Type: text/plain; version=0.0.4; charset=utf-8".parse::<Header>().unwrap()),
             Err(_) => Response::from_string("Failed to encode metrics").with_status_code(500),
         }
     }
