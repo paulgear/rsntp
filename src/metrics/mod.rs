@@ -45,7 +45,7 @@ impl MetricsCollector {
         let first_seen_gauge = Family::<PacketLabels, Gauge>::default();
         let last_seen_gauge = Family::<PacketLabels, Gauge>::default();
         let packet_counter = Family::<PacketLabels, Counter>::default();
-        let packet_size_histogram = Histogram::new(vec![48.0, 56.0, 128.0].into_iter());
+        let packet_size_histogram = Histogram::new(vec![47.0, 55.0, 127.0].into_iter());
         let unique_clients_gauge = Family::<ClientLabels, Gauge>::default();
 
         registry.register(
