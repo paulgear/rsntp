@@ -18,7 +18,7 @@ impl MetricsServer {
     // Print out all the clients and their cache counters in CSV format
     fn handle_clients(&self) -> Response<std::io::Cursor<Vec<u8>>> {
         let clients = self.metrics.client_cache.get_clients_with_counters();
-        let output = clients
+        let mut output = clients
             .iter()
             .map(|(addr, counters)| {
                 let counter_str = counters.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(",");
@@ -26,6 +26,10 @@ impl MetricsServer {
             })
             .collect::<Vec<_>>()
             .join("\n");
+
+        if !output.is_empty() {
+            output.push('\n');
+        }
 
         Response::from_string(output)
             .with_header("Content-Type: text/plain; version=0.0.4; charset=utf-8".parse::<Header>().unwrap())
