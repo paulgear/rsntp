@@ -1,6 +1,6 @@
 [package]
 name = "rsntp"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["Miroslav Lichvar <mlichvar0@gmail.com>"]
 description = "Multi-threaded NTP server"
 license = "GPLv2+"
