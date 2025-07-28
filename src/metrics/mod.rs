@@ -172,8 +172,11 @@ impl MetricsCollector {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    extern crate regex;
+    use prometheus_client::encoding::text::encode;
+    use self::regex::Regex;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+    use super::*;
 
     #[test]
     fn test_increment_packet_counter() {
@@ -238,7 +241,18 @@ mod tests {
     #[test]
     fn test_registry_access() {
         let collector = MetricsCollector::new(&[]);
-        let _registry = collector.registry();
+        let registry = collector.registry();
+        collector.record_packet_size(48);
+        collector.record_packet_size(128);
+        let mut buffer = String::new();
+        let _ = encode(&mut buffer, &registry);
+        assert!(buffer.contains("rsntp_packet_count"));
+        assert!(buffer.contains("# TYPE rsntp_packet_size_bytes histogram"));
+        let expected_sum = (48 + 128) as f64;
+        let re = Regex::new(&format!(r"(?m)^rsntp_packet_size_bytes_sum {:.1}$", expected_sum)).unwrap();
+        assert!(re.is_match(&buffer));
+        let re = Regex::new(r"(?m)^rsntp_packet_size_bytes_count 2$").unwrap();
+        assert!(re.is_match(&buffer));
     }
 
     #[test]
