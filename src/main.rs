@@ -571,7 +571,6 @@ fn main() {
         .filter_map(|s| parse_client_cache_option(s))
         .collect();
 
-
     for _ in 0..n4 {
         addrs.push(local_address4.clone());
     }
