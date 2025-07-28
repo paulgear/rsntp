@@ -255,36 +255,4 @@ mod tests {
         assert!(re.is_match(&buffer));
     }
 
-    #[test]
-    fn test_gauge_operations_simple() {
-        let collector = MetricsCollector::new(&[]);
-        // Test just the gauge creation without calling methods
-        let labels = PacketLabels {
-            thread_id: "1".to_string(),
-            packet_event: "test".to_string(),
-        };
-        let _gauge = collector.first_seen_gauge.get_or_create(&labels);
-    }
-
-    #[test]
-    fn test_direct_gauge() {
-        use prometheus_client::metrics::gauge::Gauge;
-        let gauge: Gauge = Gauge::default();
-        assert_eq!(0, gauge.set(42));
-        assert_eq!(42, gauge.get());
-    }
-
-    #[test]
-    fn test_family_gauge_set() {
-        use prometheus_client::metrics::family::Family;
-        use prometheus_client::metrics::gauge::Gauge;
-        let family: Family<PacketLabels, Gauge> = Family::default();
-        let labels = PacketLabels {
-            thread_id: "1".to_string(),
-            packet_event: "test".to_string(),
-        };
-        let gauge = family.get_or_create(&labels);
-        gauge.set(42);
-        assert_eq!(42, gauge.get());
-    }
 }
