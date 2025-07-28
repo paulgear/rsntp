@@ -28,7 +28,7 @@ struct ClientLabels {
 }
 
 pub struct MetricsCollector {
-    client_cache: ClientCache,
+    pub client_cache: ClientCache,
     first_seen_gauge: Family<PacketLabels, Gauge>,
     last_seen_gauge: Family<PacketLabels, Gauge>,
     packet_counter: Family<PacketLabels, Counter>,

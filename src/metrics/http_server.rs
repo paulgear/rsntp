@@ -15,11 +15,23 @@ impl MetricsServer {
         Self { metrics, address }
     }
 
+    // Print out all the clients and their cache counters in CSV format
     fn handle_clients(&self) -> Response<std::io::Cursor<Vec<u8>>> {
-        Response::from_string("")
+        let clients = self.metrics.client_cache.get_clients_with_counters();
+        let output = clients
+            .iter()
+            .map(|(addr, counters)| {
+                let counter_str = counters.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(",");
+                format!("{},{}", addr, counter_str)
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        Response::from_string(output)
             .with_header("Content-Type: text/plain; version=0.0.4; charset=utf-8".parse::<Header>().unwrap())
     }
 
+    // Print out all of the metrics in prometheus format
     fn handle_metrics(&self) -> Response<std::io::Cursor<Vec<u8>>> {
         self.metrics.update_unique_clients();
         let mut buffer = String::new();

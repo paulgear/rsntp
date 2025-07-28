@@ -1,4 +1,5 @@
 use moka::sync::Cache;
+use std::collections::HashSet;
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -45,6 +46,23 @@ impl ClientCache {
         self.caches
             .iter()
             .flat_map(|cache| cache.iter().map(|(ip, count)| (*ip, count)))
+            .collect()
+    }
+
+    pub fn get_clients_with_counters(&self) -> Vec<(IpAddr, Vec<u64>)> {
+        if self.caches.is_empty() {
+            return Vec::new();
+        }
+
+        // Get unique IPs from the first cache (longest TTL)
+        let unique_ips: HashSet<IpAddr> = self.caches[0]
+            .iter()
+            .map(|(ip, _)| *ip)
+            .collect();
+
+        unique_ips
+            .into_iter()
+            .map(|ip| (ip, self.get_client(ip)))
             .collect()
     }
 
