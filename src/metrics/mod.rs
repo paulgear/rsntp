@@ -116,10 +116,15 @@ impl MetricsCollector {
             packet_event: event.as_str().to_string(),
         };
 
-        let gauge = self.first_seen_gauge.get_or_create(&labels);
-        // Only set if not already set (first time)
-        if gauge.get() == 0 {
-            gauge.set(current_time);
+        // Because we are reading the gauge here, we need to scope the gauge
+        // access to ensure the read lock for the current thread's gauge is
+        // dropped before we attempt to write the one for the global thread.
+        {
+            let gauge = self.first_seen_gauge.get_or_create(&labels);
+            // Only set if not already set (first time)
+            if gauge.get() == 0 {
+                gauge.set(current_time);
+            }
         }
 
         // Also update global gauge (thread_id = 0)
@@ -244,10 +249,14 @@ mod tests {
         let registry = collector.registry();
         collector.record_packet_size(48);
         collector.record_packet_size(128);
+
+        // test basic registry output
         let mut buffer = String::new();
         let _ = encode(&mut buffer, &registry);
         assert!(buffer.contains("rsntp_packet_count"));
         assert!(buffer.contains("# TYPE rsntp_packet_size_bytes histogram"));
+
+        // we should have 48 + 128 bytes total, in 2 packets
         let expected_sum = (48 + 128) as f64;
         let re = Regex::new(&format!(r"(?m)^rsntp_packet_size_bytes_sum {:.1}$", expected_sum)).unwrap();
         assert!(re.is_match(&buffer));
