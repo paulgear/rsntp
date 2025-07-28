@@ -7,12 +7,12 @@ use tiny_http::{Server, Response, Header};
 #[derive(Clone)]
 pub struct MetricsServer {
     metrics: Arc<MetricsCollector>,
-    port: u16,
+    address: String,
 }
 
 impl MetricsServer {
-    pub fn new(metrics: Arc<MetricsCollector>, port: u16) -> Self {
-        Self { metrics, port }
+    pub fn new(metrics: Arc<MetricsCollector>, address: String) -> Self {
+        Self { metrics, address }
     }
 
     fn handle_clients(&self) -> Response<std::io::Cursor<Vec<u8>>> {
@@ -31,8 +31,8 @@ impl MetricsServer {
     }
 
     pub fn start(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let server = Server::http(format!("0.0.0.0:{}", self.port))?;
-        println!("Metrics server listening on http://0.0.0.0:{}", self.port);
+        let server = Server::http(&self.address)?;
+        println!("Metrics server listening on http://{}", self.address);
 
         for request in server.incoming_requests() {
             let metrics_server = self.clone();

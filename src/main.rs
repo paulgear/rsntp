@@ -509,10 +509,10 @@ fn parse_client_cache_option(cache_str: &str) -> Option<(u64, u64)> {
     Some((limit, ttl))
 }
 
-fn initialize_metrics(metrics_port: Option<u16>, client_cache_configs: &[(u64, u64)]) -> Option<Arc<metrics::MetricsCollector>> {
-    if let Some(port) = metrics_port {
+fn initialize_metrics(metrics_address: Option<String>, client_cache_configs: &[(u64, u64)]) -> Option<Arc<metrics::MetricsCollector>> {
+    if let Some(address) = metrics_address {
         let collector = Arc::new(metrics::MetricsCollector::new(client_cache_configs));
-        let server = metrics::MetricsServer::new(collector.clone(), port);
+        let server = metrics::MetricsServer::new(collector.clone(), address);
         thread::spawn(move || {
             if let Err(e) = server.start() {
                 eprintln!("Metrics server error: {}", e);
@@ -541,8 +541,8 @@ fn main() {
     opts.optopt("s", "server-address", "set server address (127.0.0.1:11123)", "ADDR:PORT");
     opts.optopt("u", "user", "run as USER", "USER");
     opts.optopt("r", "root", "change root directory", "DIR");
-    opts.optopt("", "metrics-port", "enable metrics endpoint on PORT; default: metrics disabled", "PORT");
-    opts.optmulti("", "client-cache", "set client cache limit,ttl in Kb,seconds (e.g., 64,60) - multiple allowed", "LIMIT,TTL");
+    opts.optopt("m", "metrics-address", "enable metrics endpoint on ADDR:PORT; default: metrics disabled", "ADDR:PORT");
+    opts.optmulti("c", "client-cache", "set client cache limit,ttl in Kb,seconds (e.g., 64,60) - multiple allowed", "LIMIT,TTL");
     opts.optflag("d", "debug", "Enable debug messages");
     opts.optflag("h", "help", "Print this help message");
 
@@ -565,7 +565,7 @@ fn main() {
     let n6 = matches.opt_str("6").unwrap_or("1".to_string()).parse().unwrap_or(1);
     let local_address4 = matches.opt_str("a").unwrap_or("0.0.0.0:123".to_string());
     let local_address6 = matches.opt_str("b").unwrap_or("[::]:123".to_string());
-    let metrics_port = matches.opt_str("metrics-port").and_then(|s| s.parse().ok());
+    let metrics_address = matches.opt_str("metrics-address");
     let client_cache_configs: Vec<(u64, u64)> = matches.opt_strs("client-cache")
         .iter()
         .filter_map(|s| parse_client_cache_option(s))
@@ -580,7 +580,7 @@ fn main() {
         addrs.push(local_address6.clone());
     }
 
-    let metrics = initialize_metrics(metrics_port, &client_cache_configs);
+    let metrics = initialize_metrics(metrics_address, &client_cache_configs);
     let server = NtpServer::new(addrs, server_addr, matches.opt_present("d"), metrics);
 
     if matches.opts_present(&["r".to_string(), "u".to_string()]) {
