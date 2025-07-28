@@ -338,7 +338,7 @@ impl NtpServer {
         println!("Server thread #{} started", thread_id);
 
         loop {
-            match NtpPacket::receive(&socket, &None, thread_id) {
+            match NtpPacket::receive(&socket, &metrics, thread_id) {
                 Ok(request) => {
                     if debug {
                         println!("Thread #{} received {:?}", thread_id, request);
@@ -413,7 +413,7 @@ impl NtpServer {
         }
 
         loop {
-            let response = match NtpPacket::receive(&socket, &metrics, 0) {
+            let response = match NtpPacket::receive(&socket, &None, 0) {
                 Ok(packet) => {
                     if let Some(ref m) = metrics {
                         m.update_packet_counter(PacketEvent::ClientResponseReceived, 0);
