@@ -20,6 +20,8 @@ extern crate net2;
 extern crate privdrop;
 extern crate prometheus_client;
 extern crate rand;
+extern crate rustc_version_runtime;
+extern crate sysinfo;
 extern crate tiny_http;
 
 use std::thread;

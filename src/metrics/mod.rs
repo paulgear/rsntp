@@ -1,11 +1,13 @@
 pub mod client_cache;
 pub mod events;
 pub mod http_server;
+pub mod process;
 
 pub use self::http_server::MetricsServer;
 
 use crate::metrics::client_cache::ClientCache;
 use crate::metrics::events::PacketEvent;
+use crate::metrics::process::ProcessMetrics;
 use prometheus_client::encoding::EncodeLabelSet;
 use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::gauge::Gauge;
@@ -13,7 +15,7 @@ use prometheus_client::metrics::histogram::Histogram;
 use prometheus_client::metrics::family::Family;
 use prometheus_client::registry::Registry;
 use std::net::IpAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
@@ -33,6 +35,7 @@ pub struct MetricsCollector {
     last_seen_gauge: Family<PacketLabels, Gauge>,
     packet_counter: Family<PacketLabels, Counter>,
     packet_size_histogram: Histogram,
+    process_metrics: Mutex<ProcessMetrics>,
     registry: Arc<Registry>,
     unique_clients_gauge: Family<ClientLabels, Gauge>,
 }
@@ -74,12 +77,15 @@ impl MetricsCollector {
             unique_clients_gauge.clone(),
         );
 
+        let process_metrics = ProcessMetrics::new(&mut registry);
+
         Self {
             registry: Arc::new(registry),
             packet_counter,
             first_seen_gauge,
             last_seen_gauge,
             packet_size_histogram,
+            process_metrics: Mutex::new(process_metrics),
             unique_clients_gauge,
             client_cache,
         }
@@ -163,13 +169,19 @@ impl MetricsCollector {
     }
 
     // set unique_clients_gauge for each period to the count of elements in that period's cache
-    fn update_unique_clients(&self) {
+    pub fn update_unique_clients(&self) {
         for (count, period) in self.client_cache.iter_counts_ttls() {
             let labels = ClientLabels {
                 period: period.to_string(),
             };
             let gauge = self.unique_clients_gauge.get_or_create(&labels);
             gauge.set(count as i64);
+        }
+    }
+
+    pub fn update_process_metrics(&self) {
+        if let Ok(mut process_metrics) = self.process_metrics.lock() {
+            process_metrics.update();
         }
     }
 

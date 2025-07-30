@@ -38,6 +38,7 @@ impl MetricsServer {
 
     // Print out all of the metrics in prometheus format
     fn handle_metrics(&self) -> Response<std::io::Cursor<Vec<u8>>> {
+        self.metrics.update_process_metrics();
         self.metrics.update_unique_clients();
         let mut buffer = String::new();
         match encode(&mut buffer, &self.metrics.registry()) {
