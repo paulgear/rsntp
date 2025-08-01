@@ -5,7 +5,6 @@ use prometheus_client::metrics::info::Info;
 use prometheus_client::registry::Registry;
 use rustc_version_runtime::version;
 use sysinfo::{System, Pid};
-use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
@@ -30,10 +29,6 @@ pub struct ProcessMetrics {
 
     // Counters
     cpu_seconds: Counter,
-
-    // Info metrics
-    rust_info: Arc<Info<RustInfoLabels>>,
-    rsntp_info: Arc<Info<RsntpInfoLabels>>,
 
     // System instance for collecting metrics
     system: System,
@@ -66,8 +61,8 @@ impl ProcessMetrics {
         let open_fds = Gauge::default();
         let max_fds = Gauge::default();
         let cpu_seconds = Counter::default();
-        let rust_info = Info::new(rust_info_labels);
-        let rsntp_info = Info::new(rsntp_info_labels);
+        let rust_info_metric = Info::new(rust_info_labels);
+        let rsntp_info_metric = Info::new(rsntp_info_labels);
 
         registry.register("process_threads", "Number of OS threads in the process", threads.clone());
         registry.register("process_virtual_memory_bytes", "Virtual memory size in bytes", memory_vss.clone());
@@ -77,8 +72,8 @@ impl ProcessMetrics {
         registry.register("process_open_fds", "Number of open file descriptors", open_fds.clone());
         registry.register("process_max_fds", "Maximum number of open file descriptors", max_fds.clone());
         registry.register("process_cpu_seconds_total", "Total user and system CPU time spent in seconds", cpu_seconds.clone());
-        registry.register("rust_info", "Information about the Rust version", rust_info);
-        registry.register("rsntp_info", "Information about the rsntp version", rsntp_info);
+        registry.register("rust_info", "Information about the Rust version", rust_info_metric);
+        registry.register("rsntp_info", "Information about the rsntp version", rsntp_info_metric);
 
         Self {
             threads,
@@ -89,8 +84,7 @@ impl ProcessMetrics {
             open_fds,
             max_fds,
             cpu_seconds,
-            rust_info: Arc::new(Info::new(RustInfoLabels { version: version().to_string() })),
-            rsntp_info: Arc::new(Info::new(RsntpInfoLabels { version: env!("CARGO_PKG_VERSION").to_string() })),
+
             system,
             process_start_time,
         }
