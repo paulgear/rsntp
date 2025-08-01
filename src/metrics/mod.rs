@@ -62,7 +62,7 @@ impl MetricsCollector {
             last_seen_gauge.clone(),
         );
         registry.register(
-            "rsntp_packet_count",
+            "rsntp_packets_total",
             "NTP packet event counters",
             packet_counter.clone(),
         );
@@ -72,7 +72,7 @@ impl MetricsCollector {
             packet_size_histogram.clone(),
         );
         registry.register(
-            "rsntp_unique_clients",
+            "rsntp_unique_clients_total",
             "Number of unique client IP addresses by time period",
             unique_clients_gauge.clone(),
         );
@@ -250,7 +250,7 @@ mod tests {
         // test basic registry output
         let mut buffer = String::new();
         let _ = encode(&mut buffer, &registry);
-        assert!(buffer.contains("rsntp_packet_count"));
+        assert!(buffer.contains("rsntp_packets_total"));
         assert!(buffer.contains("# TYPE rsntp_packet_size_bytes histogram"));
 
         // we should have 48 + 128 bytes total, in 2 packets

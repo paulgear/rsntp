@@ -64,16 +64,16 @@ impl ProcessMetrics {
         let rust_info_metric = Info::new(rust_info_labels);
         let rsntp_info_metric = Info::new(rsntp_info_labels);
 
-        registry.register("process_threads", "Number of OS threads in the process", threads.clone());
-        registry.register("process_virtual_memory_bytes", "Virtual memory size in bytes", memory_vss.clone());
-        registry.register("process_resident_memory_bytes", "Resident memory size in bytes", memory_rss.clone());
-        registry.register("process_swap_memory_bytes", "Swap memory used by process in bytes", memory_swap.clone());
-        registry.register("process_start_time_seconds", "Start time of the process since unix epoch in seconds", start_time.clone());
-        registry.register("process_open_fds", "Number of open file descriptors", open_fds.clone());
-        registry.register("process_max_fds", "Maximum number of open file descriptors", max_fds.clone());
-        registry.register("process_cpu_seconds_total", "Total user and system CPU time spent in seconds", cpu_seconds.clone());
-        registry.register("rust_info", "Information about the Rust version", rust_info_metric);
-        registry.register("rsntp_info", "Information about the rsntp version", rsntp_info_metric);
+        registry.register("rsntp_process_threads_total", "Number of OS threads in the process", threads.clone());
+        registry.register("rsntp_process_virtual_memory_bytes", "Virtual memory size in bytes", memory_vss.clone());
+        registry.register("rsntp_process_resident_memory_bytes", "Resident memory size in bytes", memory_rss.clone());
+        registry.register("rsntp_process_swap_memory_bytes", "Swap memory used by process in bytes", memory_swap.clone());
+        registry.register("rsntp_process_start_time_seconds", "Start time of the process since unix epoch in seconds", start_time.clone());
+        registry.register("rsntp_process_open_fds_total", "Number of open file descriptors", open_fds.clone());
+        registry.register("rsntp_process_max_fds", "Maximum number of open file descriptors", max_fds.clone());
+        registry.register("rsntp_process_cpu_seconds_total", "Total user and system CPU time spent in seconds", cpu_seconds.clone());
+        registry.register("rsntp_rust", "Information about the Rust version", rust_info_metric);
+        registry.register("rsntp", "Information about the rsntp version", rsntp_info_metric);
 
         Self {
             threads,
