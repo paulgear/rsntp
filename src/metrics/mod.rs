@@ -108,11 +108,6 @@ impl MetricsCollector {
             packet_event: event.as_str().to_string(),
         };
         self.packet_counter.get_or_create(&labels).inc();
-
-        // Also increment global counter (thread_id = 0)
-        if thread_id != 0 {
-            self.increment_packet_counter(event, 0);
-        }
     }
 
     pub fn update_first_seen_time(&self, event: PacketEvent, thread_id: u32) {
