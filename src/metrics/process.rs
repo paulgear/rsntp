@@ -1,5 +1,4 @@
 use prometheus_client::encoding::EncodeLabelSet;
-use prometheus_client::metrics::counter::Counter;
 use prometheus_client::metrics::gauge::Gauge;
 use prometheus_client::metrics::info::Info;
 use prometheus_client::registry::Registry;
@@ -26,9 +25,6 @@ pub struct ProcessMetrics {
     start_time: Gauge,
     open_fds: Gauge,
     max_fds: Gauge,
-
-    // Counters
-    cpu_seconds: Counter,
 
     // System instance for collecting metrics
     system: System,
@@ -60,7 +56,6 @@ impl ProcessMetrics {
         let start_time = Gauge::default();
         let open_fds = Gauge::default();
         let max_fds = Gauge::default();
-        let cpu_seconds = Counter::default();
         let rust_info_metric = Info::new(rust_info_labels);
         let rsntp_info_metric = Info::new(rsntp_info_labels);
 
@@ -71,7 +66,6 @@ impl ProcessMetrics {
         registry.register("rsntp_process_start_time_seconds", "Start time of the process since unix epoch in seconds", start_time.clone());
         registry.register("rsntp_process_open_fds_total", "Number of open file descriptors", open_fds.clone());
         registry.register("rsntp_process_max_fds", "Maximum number of open file descriptors", max_fds.clone());
-        registry.register("rsntp_process_cpu_seconds_total", "Total user and system CPU time spent in seconds", cpu_seconds.clone());
         registry.register("rsntp_rust", "Information about the Rust version", rust_info_metric);
         registry.register("rsntp", "Information about the rsntp version", rsntp_info_metric);
 
@@ -83,8 +77,6 @@ impl ProcessMetrics {
             start_time,
             open_fds,
             max_fds,
-            cpu_seconds,
-
             system,
             process_start_time,
         }
@@ -97,10 +89,6 @@ impl ProcessMetrics {
             // Memory metrics (convert from KB to bytes)
             self.memory_rss.set((process.memory() * 1024) as i64);
             self.memory_vss.set((process.virtual_memory() * 1024) as i64);
-
-            // CPU time in seconds
-            let cpu_time_secs = (process.cpu_usage() as f64 / 100.0) as u64;
-            self.cpu_seconds.inc_by(cpu_time_secs);
 
             // Process start time
             self.start_time.set(self.process_start_time as i64);
