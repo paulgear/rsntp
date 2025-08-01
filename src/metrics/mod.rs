@@ -62,7 +62,7 @@ impl MetricsCollector {
             last_seen_gauge.clone(),
         );
         registry.register(
-            "rsntp_packets_total",
+            "rsntp_packets",
             "NTP packet event counters",
             packet_counter.clone(),
         );
@@ -72,7 +72,7 @@ impl MetricsCollector {
             packet_size_histogram.clone(),
         );
         registry.register(
-            "rsntp_unique_clients_total",
+            "rsntp_unique_clients",
             "Number of unique client IP addresses by time period",
             unique_clients_gauge.clone(),
         );
