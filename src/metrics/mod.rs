@@ -122,20 +122,10 @@ impl MetricsCollector {
             packet_event: event.as_str().to_string(),
         };
 
-        // Because we are reading the gauge here, we need to scope the gauge
-        // access to ensure the read lock for the current thread's gauge is
-        // dropped before we attempt to write the one for the global thread.
-        {
-            let gauge = self.first_seen_gauge.get_or_create(&labels);
-            // Only set if not already set (first time)
-            if gauge.get() == 0 {
-                gauge.set(current_time);
-            }
-        }
-
-        // Also update global gauge (thread_id = 0)
-        if thread_id != 0 {
-            self.update_first_seen_time(event, 0);
+        let gauge = self.first_seen_gauge.get_or_create(&labels);
+        // Only set if not already set (first time)
+        if gauge.get() == 0 {
+            gauge.set(current_time);
         }
     }
 
@@ -147,11 +137,6 @@ impl MetricsCollector {
         };
 
         self.last_seen_gauge.get_or_create(&labels).set(current_time);
-
-        // Also update global gauge (thread_id = 0)
-        if thread_id != 0 {
-            self.update_last_seen_time(event, 0);
-        }
     }
 
     pub fn record_packet_size(&self, size_bytes: usize) {
