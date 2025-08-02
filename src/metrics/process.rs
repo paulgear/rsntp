@@ -7,7 +7,7 @@ use sysinfo::{System, Pid};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
-struct InfoLabels {
+struct RuntimeLabels {
     rsntp_version: String,
     rust_version: String,
 }
@@ -24,10 +24,9 @@ struct FdLabels {
 
 pub struct ProcessMetrics {
     fds: prometheus_client::metrics::family::Family<FdLabels, Gauge>,
-    info: prometheus_client::metrics::family::Family<InfoLabels, Gauge>,
     memory_bytes: prometheus_client::metrics::family::Family<MemoryLabels, Gauge>,
     process_start_time: u64,
-    runtime_seconds: Gauge,
+    runtime_seconds: prometheus_client::metrics::family::Family<RuntimeLabels, Gauge>,
     system: System,
     threads: Gauge,
 }
@@ -42,33 +41,23 @@ impl ProcessMetrics {
             .unwrap_or_default()
             .as_secs();
 
-        let info_labels = InfoLabels {
-            rsntp_version: env!("CARGO_PKG_VERSION").to_string(),
-            rust_version: version().to_string(),
-        };
-
-        let threads = Gauge::default();
-        let memory_bytes = prometheus_client::metrics::family::Family::default();
-        let runtime_seconds = Gauge::default();
         let fds = prometheus_client::metrics::family::Family::default();
-        let info = prometheus_client::metrics::family::Family::default();
+        let memory_bytes = prometheus_client::metrics::family::Family::default();
+        let runtime_seconds = prometheus_client::metrics::family::Family::default();
+        let threads = Gauge::default();
 
-        info.get_or_create(&info_labels).set(1);
-
-        registry.register("rsntp_info", "Information about rsntp and rust versions", info.clone());
         registry.register("rsntp_process_fds", "Process file descriptors by type", fds.clone());
         registry.register("rsntp_process_memory_bytes", "Process memory usage in bytes by type", memory_bytes.clone());
-        registry.register("rsntp_process_runtime_seconds", "Process runtime in seconds", runtime_seconds.clone());
+        registry.register("rsntp_process_runtime_seconds", "Process runtime in seconds with version info", runtime_seconds.clone());
         registry.register("rsntp_process_threads", "Number of OS threads in the process", threads.clone());
 
         Self {
-            threads,
-            memory_bytes,
-            runtime_seconds,
             fds,
-            info,
-            system,
+            memory_bytes,
             process_start_time,
+            runtime_seconds,
+            system,
+            threads,
         }
     }
 
@@ -80,7 +69,12 @@ impl ProcessMetrics {
             .unwrap_or_default()
             .as_secs();
         let runtime = current_time - self.process_start_time;
-        self.runtime_seconds.set(runtime as i64);
+
+        let runtime_labels = RuntimeLabels {
+            rsntp_version: env!("CARGO_PKG_VERSION").to_string(),
+            rust_version: version().to_string(),
+        };
+        self.runtime_seconds.get_or_create(&runtime_labels).set(runtime as i64);
 
         // File descriptor information (Linux-specific)
         if let Ok(open_fds) = std::fs::read_dir("/proc/self/fd") {
