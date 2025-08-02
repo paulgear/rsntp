@@ -1,19 +1,15 @@
 use prometheus_client::encoding::EncodeLabelSet;
 use prometheus_client::metrics::gauge::Gauge;
-use prometheus_client::metrics::info::Info;
+
 use prometheus_client::registry::Registry;
 use rustc_version_runtime::version;
 use sysinfo::{System, Pid};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
-struct RustInfoLabels {
-    version: String,
-}
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
-struct RsntpInfoLabels {
-    version: String,
+struct InfoLabels {
+    rsntp_version: String,
+    rust_version: String,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
@@ -32,6 +28,7 @@ pub struct ProcessMetrics {
     memory_bytes: prometheus_client::metrics::family::Family<MemoryLabels, Gauge>,
     start_time: Gauge,
     fds: prometheus_client::metrics::family::Family<FdLabels, Gauge>,
+    info: prometheus_client::metrics::family::Family<InfoLabels, Gauge>,
 
     // System instance for collecting metrics
     system: System,
@@ -48,33 +45,31 @@ impl ProcessMetrics {
             .unwrap_or_default()
             .as_secs();
 
-        let rust_info_labels = RustInfoLabels {
-            version: version().to_string(),
-        };
-
-        let rsntp_info_labels = RsntpInfoLabels {
-            version: env!("CARGO_PKG_VERSION").to_string(),
+        let info_labels = InfoLabels {
+            rsntp_version: env!("CARGO_PKG_VERSION").to_string(),
+            rust_version: version().to_string(),
         };
 
         let threads = Gauge::default();
         let memory_bytes = prometheus_client::metrics::family::Family::default();
         let start_time = Gauge::default();
         let fds = prometheus_client::metrics::family::Family::default();
-        let rust_info_metric = Info::new(rust_info_labels);
-        let rsntp_info_metric = Info::new(rsntp_info_labels);
+        let info = prometheus_client::metrics::family::Family::default();
 
-        registry.register("rsntp", "Information about the rsntp version", rsntp_info_metric);
+        info.get_or_create(&info_labels).set(1);
+
+        registry.register("rsntp_info", "Information about rsntp and rust versions", info.clone());
         registry.register("rsntp_process_fds", "Process file descriptors by type", fds.clone());
         registry.register("rsntp_process_memory_bytes", "Process memory usage in bytes by type", memory_bytes.clone());
         registry.register("rsntp_process_start_time_seconds", "Start time of the process since unix epoch in seconds", start_time.clone());
         registry.register("rsntp_process_threads", "Number of OS threads in the process", threads.clone());
-        registry.register("rsntp_rust", "Information about the Rust version", rust_info_metric);
 
         Self {
             threads,
             memory_bytes,
             start_time,
             fds,
+            info,
             system,
             process_start_time,
         }
