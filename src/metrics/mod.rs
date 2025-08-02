@@ -241,6 +241,7 @@ mod tests {
         let registry = collector.registry();
         collector.record_packet_size(48);
         collector.record_packet_size(128);
+        collector.increment_packet_counter(PacketEvent::ServerRequestReceived, 1);
 
         // test basic registry output
         let mut buffer = String::new();
