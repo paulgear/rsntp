@@ -1,10 +1,9 @@
 use prometheus_client::encoding::EncodeLabelSet;
 use prometheus_client::metrics::gauge::Gauge;
-
 use prometheus_client::registry::Registry;
 use rustc_version_runtime::version;
-use sysinfo::{System, Pid};
 use std::time::{SystemTime, UNIX_EPOCH};
+use sysinfo::System;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
 struct RuntimeLabels {
