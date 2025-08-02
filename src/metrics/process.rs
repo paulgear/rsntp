@@ -23,16 +23,13 @@ struct FdLabels {
 }
 
 pub struct ProcessMetrics {
-    // Gauges
-    threads: Gauge,
-    memory_bytes: prometheus_client::metrics::family::Family<MemoryLabels, Gauge>,
-    start_time: Gauge,
     fds: prometheus_client::metrics::family::Family<FdLabels, Gauge>,
     info: prometheus_client::metrics::family::Family<InfoLabels, Gauge>,
-
-    // System instance for collecting metrics
-    system: System,
+    memory_bytes: prometheus_client::metrics::family::Family<MemoryLabels, Gauge>,
     process_start_time: u64,
+    runtime_seconds: Gauge,
+    system: System,
+    threads: Gauge,
 }
 
 impl ProcessMetrics {
@@ -52,7 +49,7 @@ impl ProcessMetrics {
 
         let threads = Gauge::default();
         let memory_bytes = prometheus_client::metrics::family::Family::default();
-        let start_time = Gauge::default();
+        let runtime_seconds = Gauge::default();
         let fds = prometheus_client::metrics::family::Family::default();
         let info = prometheus_client::metrics::family::Family::default();
 
@@ -61,13 +58,13 @@ impl ProcessMetrics {
         registry.register("rsntp_info", "Information about rsntp and rust versions", info.clone());
         registry.register("rsntp_process_fds", "Process file descriptors by type", fds.clone());
         registry.register("rsntp_process_memory_bytes", "Process memory usage in bytes by type", memory_bytes.clone());
-        registry.register("rsntp_process_start_time_seconds", "Start time of the process since unix epoch in seconds", start_time.clone());
+        registry.register("rsntp_process_runtime_seconds", "Process runtime in seconds", runtime_seconds.clone());
         registry.register("rsntp_process_threads", "Number of OS threads in the process", threads.clone());
 
         Self {
             threads,
             memory_bytes,
-            start_time,
+            runtime_seconds,
             fds,
             info,
             system,
@@ -78,10 +75,12 @@ impl ProcessMetrics {
     pub fn update(&mut self) {
         self.system.refresh_all();
 
-        if let Some(_process) = self.system.process(Pid::from(std::process::id() as usize)) {
-            // Process start time
-            self.start_time.set(self.process_start_time as i64);
-        }
+        let current_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let runtime = current_time - self.process_start_time;
+        self.runtime_seconds.set(runtime as i64);
 
         // File descriptor information (Linux-specific)
         if let Ok(open_fds) = std::fs::read_dir("/proc/self/fd") {
