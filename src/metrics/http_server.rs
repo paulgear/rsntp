@@ -15,9 +15,24 @@ impl MetricsServer {
         Self { metrics, address }
     }
 
+    // Check for a URL parameter named `param_name` of type `T` and return its value, if any
+    fn parse_query_param<T: std::str::FromStr>(url: &str, param_name: &str) -> Option<T> {
+        if url.contains('?') {
+            url.split('?').nth(1)
+                .and_then(|query| {
+                    query.split('&')
+                        .find(|param| param.starts_with(&format!("{}=", param_name)))
+                        .and_then(|param| param.split('=').nth(1))
+                        .and_then(|value| value.parse::<T>().ok())
+                })
+        } else {
+            None
+        }
+    }
+
     // Print out all the clients and their cache counters in CSV format
-    fn handle_clients(&self) -> Response<std::io::Cursor<Vec<u8>>> {
-        let mut clients = self.metrics.client_cache.get_clients_with_counters();
+    fn handle_clients(&self, period: Option<u64>) -> Response<std::io::Cursor<Vec<u8>>> {
+        let mut clients = self.metrics.client_cache.get_clients_with_counters(period);
         clients.sort_by_key(|(addr, _)| *addr);
         let mut output = clients
             .iter()
@@ -55,9 +70,18 @@ impl MetricsServer {
         for request in server.incoming_requests() {
             let metrics_server = self.clone();
             thread::spawn(move || {
-                let response = match (request.method(), request.url()) {
-                    (&tiny_http::Method::Get, "/clients") => metrics_server.handle_clients(),
-                    (&tiny_http::Method::Get, "/metrics") => metrics_server.handle_metrics(),
+                let response = match request.method() {
+                    &tiny_http::Method::Get => {
+                        let url = request.url();
+                        if url.starts_with("/clients") {
+                            let period = Self::parse_query_param::<u64>(url, "period");
+                            metrics_server.handle_clients(period)
+                        } else if url == "/metrics" {
+                            metrics_server.handle_metrics()
+                        } else {
+                            Response::from_string("Not Found").with_status_code(404)
+                        }
+                    }
                     _ => Response::from_string("Not Found").with_status_code(404),
                 };
                 let _ = request.respond(response);
